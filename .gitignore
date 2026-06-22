@@ -1,0 +1,8 @@
+node_modules/
+package-lock.json
+package.json
+_check.js
+slide-*.jpg
+qa2/
+*.pdf
+.DS_Store

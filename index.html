@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUKA Pellet 3D Printer — Implementation Plan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --ink:#151A21; --panel:#212B36; --blue:#0F1722; --bg:#EEF1F4; --card:#FFFFFF;
+  --text:#1B2430; --muted:#5E6B7A; --amber:#E5751A; --amber-dk:#B85E16;
+  --steel:#3E7CB1; --steel-dk:#2C5C86; --green:#2E9E6B; --red:#D2553F;
+  --line:#E2E8EE; --tint:#EAF0F5; --warm:#FBF2E8;
+  --serif:Georgia,'Times New Roman',serif; --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);color:var(--text);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:700;line-height:1.15}
+a{color:var(--steel-dk)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.kick{font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:50;background:rgba(21,26,33,.97);backdrop-filter:blur(6px);border-bottom:1px solid #2a3540}
+.nav-in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:6px;height:54px;overflow-x:auto}
+.nav-in .brand{font-family:var(--serif);font-weight:700;color:#fff;font-size:.98rem;margin-right:14px;white-space:nowrap}
+.nav-in a{color:#AFBDCA;text-decoration:none;font-size:.8rem;font-weight:600;padding:6px 10px;border-radius:6px;white-space:nowrap}
+.nav-in a:hover{color:#fff;background:#2a3540}
+.nav-in a.active{color:var(--amber);background:#23303b}
+
+/* HERO */
+.hero{background:var(--ink);color:#fff;padding:64px 0 56px;position:relative;overflow:hidden}
+.hero .disc{position:absolute;border-radius:50%;background:var(--panel)}
+.hero h1{font-size:2.9rem;color:#fff;margin:10px 0 14px;max-width:760px}
+.hero p.sub{font-size:1.2rem;color:#C7D2DD;max-width:680px}
+.chips{margin-top:24px;display:flex;flex-wrap:wrap;gap:10px}
+.chip{border:1px solid var(--amber);border-radius:30px;padding:7px 15px;font-size:.85rem;font-weight:600;color:#fff;background:var(--panel)}
+.hero .date{margin-top:26px;color:var(--muted);font-size:.8rem;letter-spacing:.1em}
+
+section{padding:54px 0}
+section:nth-of-type(even){background:#fff}
+h2.sec{font-size:2rem;margin:4px 0 6px}
+.lead{color:var(--muted);font-size:1.05rem;max-width:760px;margin-bottom:26px}
+
+/* STAT GRID */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 6px 18px rgba(27,36,48,.05)}
+.stat .ic{width:46px;height:46px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:12px}
+.stat .big{font-family:var(--serif);font-size:1.7rem;font-weight:700}
+.stat .lbl{color:var(--muted);font-size:.85rem;margin-top:4px}
+
+/* ASSET CARDS */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.acard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 6px 18px rgba(27,36,48,.05);display:flex;flex-direction:column}
+.acard .ic{width:54px;height:54px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:12px}
+.acard h4{font-size:1.05rem;margin-bottom:6px}
+.acard .spec{color:var(--muted);font-size:.85rem;white-space:pre-line;flex:1}
+.badge{display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:4px 10px;border-radius:20px;margin-top:12px;align-self:flex-start}
+.b-have{background:var(--green)} .b-buy{background:var(--steel)} .b-need{background:var(--red)}
+.b-verify{background:var(--amber)} .b-opt{background:#8a93a0} .b-skip{background:#b3bcc6} .b-free{background:var(--green)} .b-partial{background:var(--amber)}
+
+/* SUBSYSTEM ROWS */
+.rows{display:flex;flex-direction:column;gap:12px}
+.srow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;display:grid;grid-template-columns:46px 1fr 220px 90px;align-items:center;gap:16px;box-shadow:0 4px 12px rgba(27,36,48,.04)}
+.srow .let{width:42px;height:42px;border-radius:10px;background:var(--ink);color:var(--amber);font-family:var(--serif);font-weight:700;font-size:1.3rem;display:flex;align-items:center;justify-content:center}
+.srow h4{font-size:1.05rem} .srow .d{color:var(--muted);font-size:.85rem}
+.track{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.track>i{display:block;height:100%;border-radius:6px}
+.srow .badge{margin:0;justify-self:end}
+
+/* ARCH */
+.arch{background:var(--blue);border-radius:16px;padding:30px;color:#fff}
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.node{background:var(--panel);border:1.5px solid var(--steel);border-radius:10px;padding:12px 14px;min-width:140px;flex:1}
+.node.amber{border-color:var(--amber)}
+.node h5{font-family:var(--sans);font-size:.9rem;color:#fff;margin-bottom:3px}
+.node small{color:#9DB0C2;font-size:.74rem;line-height:1.3;display:block;white-space:pre-line}
+.arr{display:flex;align-items:center;color:var(--amber);font-size:1.4rem;padding:0 8px}
+.arrd{display:flex;justify-content:center;color:var(--amber);font-size:1.3rem;margin:6px 0}
+.loopbox{background:#16202B;border:1px solid #33414F;border-radius:10px;padding:14px 16px;margin-top:18px}
+.loopbox b{color:var(--amber);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase}
+.loopbox p{color:#C7D2DD;font-size:.86rem;margin-top:4px}
+.legend{color:#9DB0C2;font-size:.8rem;font-style:italic;margin-top:14px}
+
+/* SIGNAL CARDS */
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.scard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 6px 18px rgba(27,36,48,.05)}
+.scard .ic{width:50px;height:50px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:12px}
+.scard h4{font-size:1.15rem}
+.scard code{display:inline-block;font-family:'SFMono-Regular',Consolas,monospace;color:var(--amber-dk);font-weight:700;font-size:.85rem;margin:6px 0}
+.scard p{color:var(--muted);font-size:.88rem}
+.note-dark{background:var(--ink);color:#fff;border-radius:12px;padding:22px 26px;margin-top:18px;display:flex;gap:16px;align-items:flex-start}
+.note-dark .ic{font-size:1.7rem}
+.note-dark h4{color:#fff;font-size:1.15rem;margin-bottom:4px}
+.note-dark p{color:#C7D2DD;font-size:.9rem}
+
+/* COLLAPSIBLE PLATFORM */
+.acc{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 4px 12px rgba(27,36,48,.04)}
+.acc>summary{cursor:pointer;list-style:none;padding:18px 22px;display:flex;align-items:center;gap:14px;font-family:var(--serif);font-weight:700;font-size:1.15rem}
+.acc>summary::-webkit-details-marker{display:none}
+.acc>summary .ic{width:42px;height:42px;border-radius:10px;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.acc>summary .chev{margin-left:auto;color:var(--amber);transition:transform .2s;font-size:1rem}
+.acc[open]>summary .chev{transform:rotate(90deg)}
+.acc .body{padding:4px 22px 22px 22px}
+.acc ol{margin:0 0 0 20px}
+.acc ol li{margin:8px 0;color:var(--text);font-size:.95rem}
+.acc .micro{background:var(--tint);border-radius:10px;padding:14px 16px;margin-top:14px;font-size:.86rem;color:var(--muted)}
+.acc .micro b{color:var(--steel-dk)}
+
+/* CODE */
+.codebox{background:var(--ink);border-radius:12px;padding:18px 20px;color:#C7D2DD;font-family:'SFMono-Regular',Consolas,monospace;font-size:.85rem;overflow-x:auto}
+.codebox .c-amber{color:var(--amber)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+
+/* PIPELINE */
+.pipe{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.pstep{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 14px;text-align:center;box-shadow:0 6px 18px rgba(27,36,48,.05)}
+.pstep .num{width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--amber);font-family:var(--serif);font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.pstep h5{font-family:var(--serif);font-size:.98rem;margin-bottom:6px}
+.pstep p{color:var(--muted);font-size:.8rem}
+
+/* CHART */
+.chart-wrap{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 6px 18px rgba(27,36,48,.05)}
+.chart-box{position:relative;height:340px}
+
+/* BOM */
+.bomtools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.filterbtn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:20px;padding:7px 14px;font-size:.8rem;font-weight:600;cursor:pointer}
+.filterbtn:hover{border-color:var(--amber)}
+.filterbtn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+#bomSearch{flex:1;min-width:180px;border:1px solid var(--line);border-radius:20px;padding:8px 16px;font-size:.85rem;font-family:inherit}
+.tablecard{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(27,36,48,.05)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+thead th{background:var(--ink);color:#fff;text-align:left;padding:12px 14px;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:54px}
+thead th:hover{background:#22303c}
+thead th .ar{color:var(--amber);font-size:.7rem;margin-left:4px}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:hover{background:var(--tint)}
+td.cost{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.tag{display:inline-block;font-size:.64rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;padding:3px 8px;border-radius:12px}
+.totbar{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center;background:var(--ink);color:#fff;border-radius:12px;padding:16px 22px;margin-top:16px}
+.totbar .t-big{font-family:var(--serif);font-size:1.7rem;font-weight:700;color:var(--amber)}
+.totbar small{color:#9DB0C2;display:block;font-size:.75rem;letter-spacing:.04em}
+
+/* OWNERS */
+.owners{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.ocard{background:var(--panel);border-radius:12px;padding:22px;color:#fff}
+.ocard .ic{width:50px;height:50px;border-radius:50%;background:#2C3845;display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:12px}
+.ocard h4{color:#fff;font-size:1.1rem;margin-bottom:6px}
+.ocard p{color:#B9C5D1;font-size:.86rem}
+.gate{background:#2A1E12;border:1.5px solid var(--amber);border-radius:12px;padding:20px 24px;margin-top:18px;display:flex;gap:16px;align-items:flex-start}
+.gate .ic{font-size:1.7rem}
+.gate p{color:#EAD9C6;font-size:.95rem}
+.gate b{color:var(--amber)}
+
+.caution{background:#FBE9E4;border:1px solid var(--red);border-radius:12px;padding:16px 20px;display:flex;gap:14px;align-items:center;margin-top:16px}
+.caution .ic{font-size:1.5rem}
+.caution p{color:#8A2A18;font-weight:600;font-size:.92rem}
+
+footer{background:var(--ink);color:#9DB0C2;padding:36px 0;font-size:.82rem}
+footer a{color:#AFBDCA;word-break:break-all}
+footer h4{color:#fff;margin-bottom:10px;font-size:1rem}
+footer ul{list-style:none;display:grid;gap:7px}
+
+@media(max-width:900px){
+  .stats,.cards,.three,.pipe,.owners{grid-template-columns:1fr 1fr}
+  .two-col{grid-template-columns:1fr}
+  .srow{grid-template-columns:42px 1fr;row-gap:10px}
+  .srow .track,.srow .badge{grid-column:1/-1;justify-self:start;width:100%}
+  .hero h1{font-size:2.1rem}
+}
+@media(max-width:560px){
+  .stats,.cards,.three,.pipe,.owners{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="brand">KUKA · LFAM</span>
+    <a href="#overview">Overview</a>
+    <a href="#assets">Assets</a>
+    <a href="#status">Status</a>
+    <a href="#arch">Architecture</a>
+    <a href="#platform">Platform</a>
+    <a href="#io">Electrical &amp; I/O</a>
+    <a href="#software">Software</a>
+    <a href="#calib">Calibration</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#bom">BOM</a>
+    <a href="#owners">Owners</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="disc" style="width:520px;height:520px;right:-160px;top:-180px"></div>
+  <div class="disc" style="width:330px;height:330px;right:-40px;top:170px;background:#1A222C"></div>
+  <div class="wrap" style="position:relative">
+    <div class="kick">Industrial Additive Manufacturing</div>
+    <h1>Converting a KUKA Robot into a Pellet 3D Printer</h1>
+    <p class="sub">Implementation plan — platform, wiring &amp; software. An interactive build guide and bill of materials.</p>
+    <div class="chips">
+      <span class="chip">KR 150 / 180</span>
+      <span class="chip">KR C2 Controller</span>
+      <span class="chip">Pellet Extrusion (LFAM)</span>
+    </div>
+    <div class="date">JUNE 2026</div>
+  </div>
+</header>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="wrap">
+    <div class="kick">The Goal</div>
+    <h2 class="sec">A robotic large-format pellet printer</h2>
+    <p class="lead">A 6-axis KUKA arm carries a pellet extruder and prints large parts directly from plastic granules — no filament. The heavy-payload arm, the extruder, and the full feedstock chain are in hand; the work ahead is integration, a build platform, and safety.</p>
+    <div class="stats">
+      <div class="stat"><div class="ic">🦾</div><div class="big">150–180 kg</div><div class="lbl">Robot payload — carries any pellet head with margin</div></div>
+      <div class="stat"><div class="ic">🎯</div><div class="big">~2700 mm</div><div class="lbl">Reach — defines the build envelope &amp; cell size</div></div>
+      <div class="stat"><div class="ic">🔥</div><div class="big">3–4 kg/h</div><div class="lbl">Extruder output — moderate LFAM throughput</div></div>
+      <div class="stat"><div class="ic">🌡️</div><div class="big">0–350 °C</div><div class="lbl">Melt range — covers PP, PETG, ABS, PA, PC</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ASSETS -->
+<section id="assets">
+  <div class="wrap">
+    <div class="kick">What's in Hand</div>
+    <h2 class="sec">Current assets</h2>
+    <div class="cards">
+      <div class="acard"><div class="ic">🦾</div><h4>Robot + Controller</h4><div class="spec">KUKA KR 150 / 180
+KR C2 (MP9), KCP2 pendant
+480V 3-phase</div><span class="badge b-have">Have</span></div>
+      <div class="acard"><div class="ic">🔥</div><h4>Pellet Extruder</h4><div class="spec">4 kg/h vertical servo
+1200 W · 0–350 °C
+1.5–3 mm nozzle</div><span class="badge b-have">Have</span></div>
+      <div class="acard"><div class="ic">💨</div><h4>Hopper Dryer</h4><div class="spec">INTSUPERMAI 110 lb
+Dries hygroscopic resins
+(ABS, PC, PA, PET)</div><span class="badge b-have">Have</span></div>
+      <div class="acard"><div class="ic">⬆️</div><h4>Vacuum Autoloader</h4><div class="spec">INTBUYING XC-300G
+300 kg/h · 7.5 L
+Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATUS -->
+<section id="status">
+  <div class="wrap">
+    <div class="kick">Where You Stand</div>
+    <h2 class="sec">The four subsystems</h2>
+    <div class="rows">
+      <div class="srow"><div class="let">A</div><div><h4>Motion</h4><div class="d">Robot arm + KR C2 controller</div></div><div class="track"><i style="width:100%;background:var(--green)"></i></div><span class="badge b-have">Have</span></div>
+      <div class="srow"><div class="let">B</div><div><h4>Extrusion</h4><div class="d">Pellet extruder, heat zones, nozzle</div></div><div class="track"><i style="width:100%;background:var(--green)"></i></div><span class="badge b-have">Have</span></div>
+      <div class="srow"><div class="let">C</div><div><h4>Control</h4><div class="d">Slicer → robot toolpath + extruder sync</div></div><div class="track"><i style="width:18%;background:var(--red)"></i></div><span class="badge b-need">To build</span></div>
+      <div class="srow"><div class="let">D</div><div><h4>Platform</h4><div class="d">Dryer + feed (done); bed, table, enclosure</div></div><div class="track"><i style="width:45%;background:var(--amber)"></i></div><span class="badge b-partial">Partial</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="arch">
+  <div class="wrap">
+    <div class="kick">System Architecture</div>
+    <h2 class="sec">What connects to what</h2>
+    <div class="arch">
+      <div class="flow">
+        <div class="node"><h5>CAD Model</h5><small>STL part to print</small></div>
+        <div class="arr">→</div>
+        <div class="node"><h5>Slicer PC</h5><small>Cura + CuraToKRC2
+→ .src / .dat</small></div>
+        <div class="arr">→</div>
+        <div class="node amber"><h5>KR C2 Controller</h5><small>Runs KRL motion program</small></div>
+        <div class="arr">→</div>
+        <div class="node amber"><h5>DeviceNet I/O</h5><small>BK5120 island</small></div>
+      </div>
+      <div class="arrd">↓</div>
+      <div class="flow">
+        <div class="node amber" style="flex:2"><h5>Extruder Control Box</h5><small>$OUT → RUN/STOP   ·   $ANOUT[1] → speed (0–10 V)   ·   $IN ← ready / fault</small></div>
+      </div>
+      <div class="arrd">↓ &nbsp;&nbsp; robot carries the head</div>
+      <div class="flow">
+        <div class="node"><h5>Robot Arm</h5><small>follows the toolpath</small></div>
+        <div class="arr">→</div>
+        <div class="node"><h5>Heated Build Bed</h5><small>part adheres here</small></div>
+        <div class="arr" style="opacity:.4">|</div>
+        <div class="node"><h5>Dryer</h5><small>dries pellets</small></div>
+        <div class="arr">→</div>
+        <div class="node"><h5>Autoloader</h5><small>vacuum-feeds hopper</small></div>
+      </div>
+      <div class="loopbox">
+        <b>Self-regulating loops</b>
+        <p>Barrel heat · bed PID · chamber · dryer — each runs on its own controller, <em>not</em> the robot.</p>
+      </div>
+      <div class="legend">Amber = robot-controlled in sync with motion &nbsp;·&nbsp; Steel = mechanical / feed path</div>
+    </div>
+  </div>
+</section>
+
+<!-- CORE IDEA -->
+<section id="core">
+  <div class="wrap">
+    <div class="kick">The Core Idea</div>
+    <h2 class="sec">The robot does only three things to the extruder</h2>
+    <div class="three">
+      <div class="scard"><div class="ic">⚡</div><h4>RUN / STOP</h4><br><code>Digital output $OUT[n]</code><p>Extrude on print moves, stop on travel moves.</p></div>
+      <div class="scard"><div class="ic">🔄</div><h4>SET SPEED</h4><br><code>Analog output $ANOUT[1]</code><p>0–10 V proportional to sliced flow rate.</p></div>
+      <div class="scard"><div class="ic">⚠️</div><h4>READ FAULT</h4><br><code>Digital input $IN[n]</code><p>Pause the print on an extruder fault.</p></div>
+    </div>
+    <div class="note-dark">
+      <div class="ic">✅</div>
+      <div><h4>Everything thermal regulates itself.</h4><p>Barrel heat zones, the heated bed, the chamber, and the dryer each run on their own controllers. The robot never manages temperature — which keeps the integration small and robust.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORM -->
+<section id="platform">
+  <div class="wrap">
+    <div class="kick">Platform — the three things still to build</div>
+    <h2 class="sec">Build platform &amp; enclosure</h2>
+    <details class="acc" open>
+      <summary><span class="ic">▦</span> 1 · Rigid print table, tied to the robot's base frame <span class="chev">▶</span></summary>
+      <div class="body">
+        <ol>
+          <li>Size the build area to the reach — keep it ~1.0–1.5 m square, set 0.7–1.5 m in front of the base.</li>
+          <li>Build a stiff steel weldment with a thick flat top plate (≥15–20 mm) — it must not flex when the heavy arm decelerates.</li>
+          <li>Anchor it to the floor, ideally the same slab as the robot, so they can't move relative to each other.</li>
+          <li>Add 3 hard reference features (dowels / machined pockets) at known XY — these become the base-calibration points.</li>
+          <li>Mount the heated bed on top, on a thermal break so the frame doesn't sink the heat.</li>
+        </ol>
+        <div class="micro"><b>Why it matters:</b> origin + 2 points teach the print coordinate system, so slice Z=0 equals the real table top. If the table shifts, Z accuracy is lost.</div>
+      </div>
+    </details>
+    <details class="acc">
+      <summary><span class="ic">🌡️</span> 2 · Heated build bed — adhesion &amp; warp control <span class="chev">▶</span></summary>
+      <div class="body">
+        <ol>
+          <li>Build surface: flat aluminum tooling plate or borosilicate glass, sized to the build area.</li>
+          <li>Heat with a high-wattage 240V silicone pad bonded underneath (LFAM beds run ~1.5 kW to 5 kW+).</li>
+          <li>Control as an independent loop — thermocouple → PID controller → SSR → heater.</li>
+          <li>Mount on the table over insulation + thermal-break standoffs to protect it and save energy.</li>
+          <li>Adhesion: PEI sheet or glue, plus a wide brim/raft in the slice for big beads.</li>
+        </ol>
+        <div class="micro"><b>Control loop:</b> Thermocouple → PID controller → solid-state relay → silicone heater. Runs by itself — the robot never sets bed temperature.</div>
+      </div>
+    </details>
+    <details class="acc">
+      <summary><span class="ic">🛡️</span> 3 · Enclosure, fencing &amp; safety interlocks <span class="chev">▶</span></summary>
+      <div class="body">
+        <ol>
+          <li><b>Machine guarding (required):</b> fence beyond the swept volume, one interlocked door, E-stops inside and out. A KR 150/180 at speed is lethal.</li>
+          <li><b>Thermal &amp; fume chamber:</b> insulated / poly panels keep a warm chamber (~60 °C, up to 150 °C) and contain fumes — duct an extractor out.</li>
+          <li>Wire the door interlock into Operator Safety (X11 pins C8–C10 / C9–C11, dual channel).</li>
+          <li>Wire external E-stops to X11 pins C14–C15 / C16–D1.</li>
+          <li>Replace the factory bridges with the real safety devices — never leave them jumpered.</li>
+        </ol>
+        <div class="caution"><span class="ic">⚠️</span><p>Safety-circuit wiring must be done and validated by a qualified machine-safety integrator — not improvised with permanent jumpers.</p></div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ELECTRICAL & IO -->
+<section id="io">
+  <div class="wrap">
+    <div class="kick">Electrical &amp; I/O</div>
+    <h2 class="sec">The DeviceNet I/O island</h2>
+    <p class="lead">The KR C2 talks to the world over DeviceNet. Add a small remote-I/O island; that is the whole integration core.</p>
+    <div class="arch" style="margin-bottom:20px">
+      <div class="flow">
+        <div class="node amber"><h5>KR C2</h5><small>DeviceNet master</small></div>
+        <div class="arr">→</div>
+        <div class="node"><h5>BK5120</h5><small>DeviceNet coupler · MACID 11</small></div>
+        <div class="arr">→</div>
+        <div style="flex:2;display:flex;flex-direction:column;gap:8px">
+          <div class="node amber"><h5>KL4004 — Analog Out</h5><small>$ANOUT[1] → extruder speed (0–10 V)</small></div>
+          <div class="node amber"><h5>KL2xxx — Digital Out</h5><small>$OUT[n] → extruder RUN / heater enable</small></div>
+          <div class="node"><h5>KL1xxx — Digital In</h5><small>$IN[n] ← extruder ready / fault</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div>
+        <h4 style="margin-bottom:10px;font-size:1.05rem">Mapped in <code style="color:var(--amber-dk)">iosys.ini</code></h4>
+        <div class="codebox"><span class="c-amber">ANOUT1</span>=11,0,16,3
+<span class="c-amber">outb0</span>=11,8,x3
+; full-scale 0x6C00 = 27648 → 10 V</div>
+        <p style="color:var(--muted);font-size:.85rem;margin-top:10px;font-style:italic">Calibrate so $ANOUT[1]=1.0 → 10 V = max extrude rate. Bench-test before any print.</p>
+      </div>
+      <div>
+        <h4 style="margin-bottom:10px;font-size:1.05rem">Power</h4>
+        <div class="micro" style="margin-top:0">
+          <b>Licensed electrician.</b> 480V 3-phase to the KR C2, sized to its nameplate (~7.5–13 kVA — <em>not</em> the sum of axis drive ratings). The heated bed/chamber, extruder control box, dryer, and autoloader each go on their own circuits.
+        </div>
+        <div class="caution" style="margin-top:14px"><span class="ic">⚠️</span><p>Confirm the extruder control box accepts an external RUN + speed input before ordering the I/O island.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOFTWARE -->
+<section id="software">
+  <div class="wrap">
+    <div class="kick">Software</div>
+    <h2 class="sec">From model to robot motion</h2>
+    <div class="pipe">
+      <div class="pstep"><div class="num">1</div><h5>CAD → Cura</h5><p>Slice the STL in Ultimaker Cura with the CuraToKRC2 plugin.</p></div>
+      <div class="pstep"><div class="num">2</div><h5>Configure</h5><p>krl_config.json: tool A/B/C, HOME, Tool &amp; Base numbers, flow constant. Enable Relative Extrusion.</p></div>
+      <div class="pstep"><div class="num">3</div><h5>Export KRL</h5><p>Native .src/.dat, auto-split into subroutines to fit KR C2 RAM.</p></div>
+      <div class="pstep"><div class="num">4</div><h5>Transfer</h5><p>Copy files to the controller via USB or network share.</p></div>
+      <div class="pstep"><div class="num">5</div><h5>Run</h5><p>Robot follows the path; writes $ANOUT[1] for flow, toggles $OUT[n] for extrude on/off.</p></div>
+    </div>
+    <div class="micro" style="max-width:none"><b>Upgrade paths:</b> KUKA|prc (Rhino/Grasshopper) for simulation &amp; non-planar toolpaths · RoboDK + KUKA.RSI for live streaming (~4–12 ms) — add later, no drive changes.</div>
+  </div>
+</section>
+
+<!-- CALIBRATION -->
+<section id="calib">
+  <div class="wrap">
+    <div class="kick">Calibration</div>
+    <h2 class="sec">Tie the model, the nozzle, and the table together</h2>
+    <div class="two-col">
+      <div class="scard"><div class="ic">🎯</div><h4>Tool (TCP) — XYZ 4-point</h4><code>Setup ▸ Measure ▸ Tool ▸ XYZ 4-point</code><p>Touch the nozzle tip to one fixed point from 4 orientations; the controller computes the TCP. Enter the tool A/B/C to match krl_config.json. Save as the Tool number.</p></div>
+      <div class="scard"><div class="ic">📐</div><h4>Base — 3-point</h4><code>Setup ▸ Measure ▸ Base ▸ 3-point</code><p>With the taught TCP, touch the table's 3 reference features: origin, a point on +X, a point in the XY plane. This builds the print coordinate frame. Save as the Base number.</p></div>
+    </div>
+    <div class="note-dark"><div class="ic">✅</div><div><h4>Verify</h4><p>Jog to Base 0,0,0 — the nozzle should sit at the table origin; +X and +Y run along the table edges. Re-touch the references after any crash.</p></div></div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="kick">Roadmap</div>
+    <h2 class="sec">Commissioning sequence</h2>
+    <p class="lead">Indicative effort per phase. Gate everything on step 2 — do not run the arm near the table until the door interlock and every E-stop are proven to stop it.</p>
+    <div class="chart-wrap"><div class="chart-box"><canvas id="roadmapChart"></canvas></div></div>
+  </div>
+</section>
+
+<!-- BOM + BUDGET -->
+<section id="bom">
+  <div class="wrap">
+    <div class="kick">Bill of Materials</div>
+    <h2 class="sec">Interactive parts &amp; budget</h2>
+    <p class="lead">Filter by status, search, or sort any column. The total updates to the rows currently shown.</p>
+
+    <div class="chart-wrap" style="margin-bottom:26px"><div class="chart-box"><canvas id="budgetChart"></canvas></div></div>
+
+    <div class="bomtools">
+      <button class="filterbtn active" data-f="all">All</button>
+      <button class="filterbtn" data-f="Have">Have</button>
+      <button class="filterbtn" data-f="Buy">Buy</button>
+      <button class="filterbtn" data-f="Verify">Verify</button>
+      <button class="filterbtn" data-f="Optional">Optional</button>
+      <button class="filterbtn" data-f="Skip">Skip</button>
+      <input id="bomSearch" placeholder="Search items, specs, notes…">
+    </div>
+
+    <div class="tablecard">
+      <table id="bomTable">
+        <thead><tr>
+          <th data-k="sub">Subsystem<span class="ar"></span></th>
+          <th data-k="item">Item<span class="ar"></span></th>
+          <th data-k="spec">Spec / Model<span class="ar"></span></th>
+          <th data-k="status">Status<span class="ar"></span></th>
+          <th data-k="cost">Cost (USD)<span class="ar"></span></th>
+          <th data-k="notes">Notes<span class="ar"></span></th>
+        </tr></thead>
+        <tbody id="bomBody"></tbody>
+      </table>
+    </div>
+
+    <div class="totbar">
+      <div><small>ROWS SHOWN</small><span id="rowCount" style="font-size:1.2rem;font-weight:700"></span></div>
+      <div style="text-align:right"><small>SUM OF SHOWN ROWS</small><span class="t-big" id="shownTotal"></span></div>
+      <div style="text-align:right"><small>REMAINING TO BUY (ENTRY PATH)</small><span class="t-big" id="buyTotal"></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- OWNERS -->
+<section id="owners">
+  <div class="wrap">
+    <div class="kick">Who Does What</div>
+    <h2 class="sec">Three owners, one cell</h2>
+    <div class="owners">
+      <div class="ocard"><div class="ic">🔌</div><h4>Licensed Electrician</h4><p>480V feeder, disconnect, grounding, and the high-power bed/chamber circuits.</p></div>
+      <div class="ocard"><div class="ic">🛡️</div><h4>Safety Integrator</h4><p>X11 / ESC wiring of fence interlock + E-stops, and validation that they stop the robot.</p></div>
+      <div class="ocard"><div class="ic">🛠️</div><h4>You</h4><p>Table, bed, enclosure shell, I/O island, slicer setup, and calibration — stage and bench-test.</p></div>
+    </div>
+    <div class="gate"><span class="ic">⚠️</span><p><b>Resolve first:</b> confirm the extruder control box accepts an external RUN/STOP + speed signal. That single answer decides how good the prints can be — check its wiring manual before ordering the I/O island.</p></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <h4>Sources</h4>
+    <ul>
+      <li><a href="https://industrialmonitordirect.com/blogs/knowledgebase/kr-c2-ed2005-x11x12-safety-circuit-jumper-configuration-for-standalone" target="_blank">KR C2 X11 / ESC safety-circuit pin scheme</a></li>
+      <li><a href="https://industrialmonitordirect.com/blogs/knowledgebase/kuka-krc2-devicenet-beckhoff-kl4004-analog-output-configuration" target="_blank">KR C2 DeviceNet I/O config (iosys.ini, $ANOUT / $OUT)</a></li>
+      <li><a href="https://www.robot-forum.com/robotforum/thread/55449-open-source-cura-to-kuka-krl-src-plugin-for-krc2-3d-printing-additive-manufactur/" target="_blank">CuraToKRC2 plugin (krl_config.json, $ANOUT flow, RAM chunking)</a></li>
+      <li><a href="https://www.robot-store.co.uk/wp-content/uploads/2021/07/KR210-Robot-Manual.pdf" target="_blank">KR 150/180/210 technical data (payload, reach, ISO 9409 flange)</a></li>
+      <li><a href="https://www.robot-forum.com/robotforum/thread/37320-base-calibration/" target="_blank">KUKA Tool (XYZ 4-point) &amp; Base (3-point) calibration</a></li>
+      <li><a href="https://robodk.com/doc/en/Robot-Machining-Robot-3D-Printing-Project.html" target="_blank">RoboDK robot 3D printing (RSI streaming alternative)</a></li>
+    </ul>
+    <p style="margin-top:18px;color:#5E6B7A">Prepared June 2026 · For planning use. Power and safety-circuit work must be performed by qualified, licensed professionals.</p>
+  </div>
+</footer>
+
+<script>
+// ---------- BOM DATA ----------
+const BOM=[
+ {sub:"Motion",item:"Robot arm",spec:"KUKA KR 150 / 180 (ZH 150/180 I)",status:"Have",cost:0,notes:"Heavy payload easily carries the 6 kg extruder head"},
+ {sub:"Motion",item:"Controller",spec:"KUKA KR C2 (MP9)",status:"Have",cost:0,notes:"Manage RAM limit on large programs"},
+ {sub:"Motion",item:"Teach pendant",spec:"KCP2",status:"Have",cost:0,notes:"Jogging & program control"},
+ {sub:"Motion",item:"Servo drives",spec:"As labeled — verify in cabinet",status:"Verify",cost:0,notes:"Stock KR C2 uses KSD drives — confirm before buying anything"},
+ {sub:"Control",item:"Drive replacement / EtherCAT",spec:"—",status:"Skip",cost:0,notes:"NOT needed for printing — avoid this cost"},
+ {sub:"Control",item:"Toolpath software (start)",spec:"CuraToKRC2 plugin (open source)",status:"Have",cost:0,notes:"Free; auto-splits toolpaths to fit KR C2 RAM"},
+ {sub:"Control",item:"Toolpath software (pro)",spec:"KUKA|prc (Rhino/Grasshopper)",status:"Optional",cost:1500,notes:"Simulation + reach check + KRL export"},
+ {sub:"Control",item:"Live streaming (upgrade)",spec:"RoboDK + KUKA.RSI license",status:"Optional",cost:5000,notes:"Add later only if live iteration needed"},
+ {sub:"Control",item:"Extruder control interface",spec:"KR C2 I/O (+ PLC if needed)",status:"Buy",cost:300,notes:"GATING ITEM: confirm extruder box accepts external RUN/STOP + speed"},
+ {sub:"Extrusion",item:"Pellet extruder",spec:"4 kg/h vertical servo (1200W)",status:"Have",cost:0,notes:"6 kg head + 5 kg box; 0–350°C; nozzle 1.5–3 mm; active suction"},
+ {sub:"Extrusion",item:"Flange adapter plate",spec:"Custom machined",status:"Buy",cost:1000,notes:"Only head rides on arm; control box stays off-arm"},
+ {sub:"Extrusion",item:"Extra nozzles",spec:"1.5–3 mm (and larger)",status:"Optional",cost:200,notes:"Small nozzle = finer detail but slower / higher pressure"},
+ {sub:"Material",item:"Hopper dryer",spec:"INTSUPERMAI 110 lb",status:"Have",cost:0,notes:"Needed for ABS/PC/PA/PET; optional for PP/PE"},
+ {sub:"Material",item:"Vacuum autoloader",spec:"INTBUYING XC-300G 300 kg/h",status:"Have",cost:0,notes:"Mates with extruder active-suction intake"},
+ {sub:"Platform",item:"Heated build bed",spec:"Aluminum/glass + silicone heater + PID",status:"Buy",cost:2500,notes:"Independent control loop"},
+ {sub:"Platform",item:"Print table",spec:"Rigid steel weldment to base frame",status:"Buy",cost:1500,notes:"Reference surface with 3 calibration features"},
+ {sub:"Safety",item:"Fencing / interlocks",spec:"Safety-rated guarding + door switch",status:"Buy",cost:4000,notes:"Required before unattended runs"},
+ {sub:"Electrical",item:"Electrician install",spec:"480V 3-phase feeder + disconnect",status:"Buy",cost:3500,notes:"Size to KR C2 nameplate, not sum of drive ratings"}
+];
+const TAGCLASS={Have:"b-have",Buy:"b-buy",Verify:"b-verify",Optional:"b-opt",Skip:"b-skip"};
+const fmt=n=>n===0?"$0":"$"+n.toLocaleString();
+let curFilter="all", curSearch="", sortKey=null, sortAsc=true;
+
+function render(){
+  let rows=BOM.filter(r=>{
+    const okF = curFilter==="all" || r.status===curFilter;
+    const s=curSearch.toLowerCase();
+    const okS = !s || (r.item+r.spec+r.notes+r.sub).toLowerCase().includes(s);
+    return okF&&okS;
+  });
+  if(sortKey){
+    rows=rows.slice().sort((a,b)=>{
+      let x=a[sortKey],y=b[sortKey];
+      if(sortKey==="cost"){return sortAsc?x-y:y-x;}
+      x=(""+x).toLowerCase();y=(""+y).toLowerCase();
+      return sortAsc?(x>y?1:-1):(x<y?1:-1);
+    });
+  }
+  const body=document.getElementById("bomBody");
+  body.innerHTML=rows.map(r=>`<tr>
+    <td>${r.sub}</td>
+    <td><b>${r.item}</b></td>
+    <td>${r.spec}</td>
+    <td><span class="tag ${TAGCLASS[r.status]||'b-opt'}" style="background:${tagColor(r.status)}">${r.status}</span></td>
+    <td class="cost">${fmt(r.cost)}</td>
+    <td style="color:var(--muted)">${r.notes}</td></tr>`).join("");
+  const shown=rows.reduce((a,r)=>a+r.cost,0);
+  document.getElementById("rowCount").textContent=rows.length;
+  document.getElementById("shownTotal").textContent=fmt(shown);
+  const buy=BOM.filter(r=>r.status==="Buy").reduce((a,r)=>a+r.cost,0);
+  document.getElementById("buyTotal").textContent="~"+fmt(buy);
+}
+function tagColor(s){return {Have:"#2E9E6B",Buy:"#3E7CB1",Verify:"#E5751A",Optional:"#8a93a0",Skip:"#b3bcc6"}[s]||"#8a93a0";}
+
+document.querySelectorAll(".filterbtn").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".filterbtn").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); curFilter=b.dataset.f; render();
+}));
+document.getElementById("bomSearch").addEventListener("input",e=>{curSearch=e.target.value;render();});
+document.querySelectorAll("#bomTable thead th").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.k;
+  if(sortKey===k){sortAsc=!sortAsc;}else{sortKey=k;sortAsc=true;}
+  document.querySelectorAll("#bomTable thead th .ar").forEach(a=>a.textContent="");
+  th.querySelector(".ar").textContent=sortAsc?"▲":"▼";
+  render();
+}));
+render();
+
+// ---------- CHARTS ----------
+function buildCharts(){
+  if(typeof Chart==="undefined"){return;}
+  Chart.defaults.font.family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif";
+  Chart.defaults.color="#5E6B7A";
+  // Roadmap
+  new Chart(document.getElementById("roadmapChart"),{
+    type:"bar",
+    data:{labels:["1 Robot alone","2 Safety validated","3 I/O bench test","4 Tool & base calib.","5 Dry run in air","6 Heat soak","7 First print (PP/PETG)","8 Scale up + resins"],
+      datasets:[{label:"Days",data:[2,4,3,2,2,1,3,6],backgroundColor:"#E5751A",borderRadius:5,barThickness:20}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+" days (indicative)"}}},
+      scales:{x:{title:{display:true,text:"Indicative effort (days)"},grid:{color:"#E2E8EE"}},y:{grid:{display:false}}}}
+  });
+  // Budget
+  new Chart(document.getElementById("budgetChart"),{
+    type:"bar",
+    data:{labels:["Safety fencing","Electrical install","Heated bed","Print table","Flange adapter","I/O island","Slicer software"],
+      datasets:[{label:"USD",data:[4000,3500,2500,1500,1000,300,0],backgroundColor:"#3E7CB1",borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},title:{display:true,text:"Remaining spend — entry path (~$12,800)",color:"#1B2430",font:{size:14,weight:"700"}},
+        tooltip:{callbacks:{label:c=>"$"+c.parsed.y.toLocaleString()}}},
+      scales:{y:{beginAtZero:true,grid:{color:"#E2E8EE"},ticks:{callback:v=>"$"+v.toLocaleString()}},x:{grid:{display:false}}}}
+  });
+}
+window.addEventListener("load",buildCharts);
+
+// ---------- NAV ACTIVE STATE ----------
+const navLinks=[...document.querySelectorAll(".nav-in a")];
+const secs=navLinks.map(a=>document.querySelector(a.getAttribute("href")));
+window.addEventListener("scroll",()=>{
+  let i=secs.length-1;
+  while(i>0 && window.scrollY+90 < secs[i].offsetTop) i--;
+  navLinks.forEach(a=>a.classList.remove("active"));
+  if(navLinks[i])navLinks[i].classList.add("active");
+});
+</script>
+</body>
+</html>
