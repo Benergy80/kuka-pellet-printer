@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KUKA Pellet 3D Printer — Implementation Plan</title>
+<script>(function(){try{var t=localStorage.getItem("kuka-theme");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -238,6 +239,34 @@ svg.lucide{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;
 .reveal.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1!important;transform:none!important;transition:none}}
 
+/* ===== Dark mode ===== */
+.theme-toggle{margin-left:auto;flex:0 0 auto;width:36px;height:36px;border:1px solid var(--line-strong);background:var(--card);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:color .15s,border-color .15s,background .15s}
+.theme-toggle:hover{color:var(--text);border-color:var(--steel)}
+.theme-toggle svg{width:18px;height:18px}
+.theme-toggle .ic-sun{display:none}
+.theme-toggle .ic-moon{display:block}
+[data-theme="dark"] .theme-toggle .ic-moon{display:none}
+[data-theme="dark"] .theme-toggle .ic-sun{display:block}
+
+/* fade the major surfaces on theme switch (no transform-hover elements here, so no conflict) */
+body,nav,.codebox,footer,.totbar,table,thead th,tbody td,.node,.tag,.badge{transition:background-color .25s ease,border-color .25s ease,color .25s ease}
+
+[data-theme="dark"]{
+  --bg:#0D131C; --bg-alt:#111A27; --card:#141E2C; --ink:#1E2A3A; --panel:#1E2A3A;
+  --text:#E8EDF3; --muted:#9BA8B7; --muted-2:#6C7A8B;
+  --line:#243240; --line-strong:#324154; --tint:#1B2735;
+  --amber:#FF7A33; --amber-dk:#FF9456; --warm:#2A1B12;
+  --steel:#5B9BD8; --steel-dk:#9CC2E8; --steel-tint:#15273B;
+  --green:#34D058; --red:#FF6B6B;
+}
+[data-theme="dark"] nav{background:rgba(13,19,28,.82)}
+[data-theme="dark"] .codebox{background:#0A0F16;border-color:#0A0F16}
+[data-theme="dark"] .gate{border-color:#5A3A1E;border-left-color:var(--amber)}
+[data-theme="dark"] .gate p{color:#EBC8A8}
+[data-theme="dark"] .caution{background:#2A1416;border-color:#4A2A2A}
+[data-theme="dark"] .caution p{color:#FCA99C}
+[data-theme="dark"] .stat:hover,[data-theme="dark"] .acard:hover,[data-theme="dark"] .scard:hover,[data-theme="dark"] .pstep:hover,[data-theme="dark"] .ocard:hover{box-shadow:0 10px 30px rgba(0,0,0,.35)}
+
 </style>
 </head>
 <body>
@@ -257,6 +286,10 @@ svg.lucide{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;
     <a href="#roadmap">Roadmap</a>
     <a href="#bom">BOM</a>
     <a href="#owners">Owners</a>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle light / dark">
+      <svg class="lucide ic-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      <svg class="lucide ic-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    </button>
   </div>
 </nav>
 
@@ -668,31 +701,41 @@ document.querySelectorAll("#bomTable thead th").forEach(th=>th.addEventListener(
 }));
 render();
 
-// ---------- CHARTS ----------
+// ---------- CHARTS (theme-aware) ----------
+var charts=[];
+function chartPalette(){
+  var dark=document.documentElement.getAttribute("data-theme")==="dark";
+  return dark
+    ? {grid:"#243240",tick:"#9BA8B7",title:"#E8EDF3",amber:"#FF7A33",steel:"#5B9BD8"}
+    : {grid:"#EAEFF4",tick:"#64707E",title:"#0F1722",amber:"#E8590C",steel:"#2563A8"};
+}
 function buildCharts(){
   if(typeof Chart==="undefined"){return;}
+  var p=chartPalette();
   Chart.defaults.font.family="Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif";
-  Chart.defaults.color="#64707E";
+  Chart.defaults.color=p.tick;
+  charts.forEach(function(c){c.destroy();});charts=[];
   // Roadmap
-  new Chart(document.getElementById("roadmapChart"),{
+  charts.push(new Chart(document.getElementById("roadmapChart"),{
     type:"bar",
     data:{labels:["1 Robot alone","2 Safety validated","3 I/O bench test","4 Tool & base calib.","5 Dry run in air","6 Heat soak","7 First print (PP/PETG)","8 Scale up + resins"],
-      datasets:[{label:"Days",data:[2,4,3,2,2,1,3,6],backgroundColor:"#E8590C",borderRadius:5,barThickness:20}]},
+      datasets:[{label:"Days",data:[2,4,3,2,2,1,3,6],backgroundColor:p.amber,borderRadius:5,barThickness:20}]},
     options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+" days (indicative)"}}},
-      scales:{x:{title:{display:true,text:"Indicative effort (days)"},grid:{color:"#EAEFF4"}},y:{grid:{display:false}}}}
-  });
+      scales:{x:{title:{display:true,text:"Indicative effort (days)"},grid:{color:p.grid}},y:{grid:{display:false}}}}
+  }));
   // Budget
-  new Chart(document.getElementById("budgetChart"),{
+  charts.push(new Chart(document.getElementById("budgetChart"),{
     type:"bar",
     data:{labels:["Safety fencing","Electrical install","Heated bed","Print table","Flange adapter","I/O island","Slicer software"],
-      datasets:[{label:"USD",data:[4000,3500,2500,1500,1000,300,0],backgroundColor:"#2563A8",borderRadius:5}]},
+      datasets:[{label:"USD",data:[4000,3500,2500,1500,1000,300,0],backgroundColor:p.steel,borderRadius:5}]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},title:{display:true,text:"Remaining spend — entry path (~$12,800)",color:"#0F1722",font:{size:14,weight:"700"}},
+      plugins:{legend:{display:false},title:{display:true,text:"Remaining spend — entry path (~$12,800)",color:p.title,font:{size:14,weight:"700"}},
         tooltip:{callbacks:{label:c=>"$"+c.parsed.y.toLocaleString()}}},
-      scales:{y:{beginAtZero:true,grid:{color:"#EAEFF4"},ticks:{callback:v=>"$"+v.toLocaleString()}},x:{grid:{display:false}}}}
-  });
+      scales:{y:{beginAtZero:true,grid:{color:p.grid},ticks:{callback:v=>"$"+v.toLocaleString()}},x:{grid:{display:false}}}}
+  }));
 }
+window.__rebuildCharts=buildCharts;
 window.addEventListener("load",buildCharts);
 
 // ---------- NAV ACTIVE STATE ----------
@@ -732,6 +775,18 @@ window.addEventListener("scroll",()=>{
     });
   },{rootMargin:"0px 0px -8% 0px",threshold:.12});
   els.forEach(function(e){obs.observe(e);});
+})();
+
+// ---------- THEME TOGGLE ----------
+(function(){
+  var root=document.documentElement, KEY="kuka-theme", btn=document.getElementById("themeToggle");
+  if(!btn)return;
+  btn.addEventListener("click",function(){
+    var dark=root.getAttribute("data-theme")!=="dark";
+    if(dark)root.setAttribute("data-theme","dark");else root.removeAttribute("data-theme");
+    try{localStorage.setItem(KEY,dark?"dark":"light");}catch(e){}
+    if(window.__rebuildCharts)window.__rebuildCharts();
+  });
 })();
 </script>
 </body>
