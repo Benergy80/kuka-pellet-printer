@@ -38,7 +38,8 @@ a{color:var(--steel);text-decoration:none}
 .tbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tbtn .ic-moon{display:none} .tbtn .ic-sun{display:block}
 [data-theme="light"] .tbtn .ic-sun{display:none} [data-theme="light"] .tbtn .ic-moon{display:block}
-.dimlabel{font-family:var(--mono);font-size:.6rem;letter-spacing:.02em;color:var(--head);background:var(--glass);border:1px solid var(--line-2);border-radius:5px;padding:2px 6px;white-space:nowrap;pointer-events:none}
+.dimlabel{font-family:var(--mono);font-size:.6rem;letter-spacing:.02em;color:var(--head);background:rgba(15,23,34,.40);border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:2px 6px;white-space:nowrap;pointer-events:none}
+[data-theme="light"] .dimlabel{background:rgba(255,255,255,.5);border-color:rgba(15,23,34,.16)}
 .brand{display:inline-flex;align-items:center;gap:9px}
 .brand b{font-family:var(--display);font-weight:700;font-size:.9rem;color:var(--head)}
 .brand span{font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;color:var(--steel);text-transform:uppercase;display:block}
@@ -212,6 +213,7 @@ details.cellbox:not([open])>summary::before{content:"▸ "}
     <div class="range"><span>Top&nbsp;Z</span><input type="range" id="cellTop" min="1.5" max="4" step="0.1" value="3.4"><b id="cellTopv" style="font-family:var(--mono);color:var(--head)">3.4&nbsp;m</b></div>
     <div class="toggles" style="margin-top:8px">
       <label><input type="checkbox" id="cbWalls" checked> Show walls</label>
+      <label><input type="checkbox" id="cbDims" checked> Dimensions</label>
       <label><input type="checkbox" id="cbCrash" checked> Crash detection</label>
       <label><input type="checkbox" id="cbHardStop" checked> Hard-stop at walls</label>
       <label><input type="checkbox" id="cbSelf" checked> Self-collision</label>
@@ -265,7 +267,7 @@ let part=null, path=null, beadGeo=null, beadLine=null, head=null, anim={playing:
 const holders = {}, groups = [];
 const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _a=new THREE.Vector3(), _v2=new THREE.Vector3(), _r=new THREE.Vector3(), _d=new THREE.Vector3(), _c=new THREE.Vector3();
 const DOWN=new THREE.Vector3(0,0,-1);
-let cellGroup, cellWire, crashOn=true, selfOn=true, hardStop=true, lastSafe=null; const wallMeshes=[], hazards=[];
+let cellGroup, cellWire, crashOn=true, selfOn=true, hardStop=true, dimsOn=true, lastSafe=null; const wallMeshes=[], hazards=[];
 const _box=new THREE.Box3(), _ba=new THREE.Box3(), _bb=new THREE.Box3();
 const BACK_X=-1.0; const cell={xmin:-1,xmax:3.6,ymin:-2.5,ymax:2.5,zmin:0,zmax:3.4}; const collision={hit:false,wall:false,self:false};
 const SELF_NAMES=['base_link','link_1','link_2','link_3','link_4','link_5','link_6'];
@@ -382,7 +384,9 @@ function rebuildDims(){
   const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:cc.plate,transparent:true,opacity:0.85}));
   cellGroup.add(ln); dimLines.push(ln);
   dimLabel(`Build plate 1200 × 1200 mm`, TABLE.x, TABLE.y-tw-0.16, z);
+  applyDimsVis();
 }
+function applyDimsVis(){ for(const o of dimLabels) o.visible=dimsOn; for(const l of dimLines) l.visible=dimsOn; }
 function rebuildWalls(){
   while(wallMeshes.length){ const m=wallMeshes.pop(); cellGroup.remove(m); m.geometry.dispose(); m.material.dispose(); }
   const W=cell.xmax-cell.xmin, D=cell.ymax-cell.ymin, H=cell.zmax, cx=(cell.xmin+cell.xmax)/2, t=0.02;
@@ -787,6 +791,7 @@ function buildUI(){
   set('showModel',e=>{ if(part) part.visible=e.target.checked; checkCollision(); },'change');
   set('cellFront',updateCell,'input'); set('cellBack',updateCell,'input'); set('cellLeft',updateCell,'input'); set('cellRight',updateCell,'input'); set('cellTop',updateCell,'input');
   set('cbWalls',applyWallVis,'change');
+  set('cbDims',e=>{ dimsOn=e.target.checked; applyDimsVis(); },'change');
   set('cbCrash',e=>{ crashOn=e.target.checked; checkCollision(); },'change');
   set('cbHardStop',e=>{ hardStop=e.target.checked; },'change');
   set('cbSelf',e=>{ selfOn=e.target.checked; checkCollision(); },'change');
