@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUKA KR 150 — Interactive 3D Twin (LFAM)</title>
+<meta name="description" content="Interactive browser 3D twin of the KUKA KR 150 (kr150_2) built from the ROS-Industrial kuka_kr150_support model — jog all six axes, see the live tool-tip position and the print envelope.">
+<meta property="og:title" content="KUKA KR 150 — Interactive 3D Twin">
+<meta property="og:description" content="Jog the six axes of a KUKA KR 150 in your browser and verify the print envelope. Built from the ROS-Industrial kuka_kr150_support model.">
+<meta property="og:image" content="https://benergy80.github.io/kuka-pellet-printer/images/og-cover.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B121B; --panel:#111C28; --line:#243240; --line-2:#324154;
+  --text:#E8EDF3; --muted:#9BA8B7; --amber:#FF7A33; --amber-dk:#E8590C;
+  --steel:#5B9BD8; --navy:#0E2235;
+  --display:'Space Grotesk',sans-serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow:hidden;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.01em}
+a{color:var(--steel);text-decoration:none}
+
+/* brand bar */
+.topbar{position:absolute;top:0;left:0;right:0;z-index:10;height:54px;display:flex;align-items:center;gap:12px;padding:0 20px;background:rgba(11,18,27,.7);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:inline-flex;align-items:center;gap:9px}
+.brand b{font-family:var(--display);font-weight:700;font-size:.9rem;color:#fff}
+.brand span{font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;color:var(--steel);text-transform:uppercase;display:block}
+.topbar .sp{flex:1}
+.topbar a.t{font-size:.8rem;color:var(--muted);padding:6px 10px;border-radius:7px}
+.topbar a.t:hover{color:#fff;background:rgba(255,255,255,.06)}
+
+#scene{position:absolute;inset:0}
+#scene canvas{display:block}
+
+/* control panel */
+.panel{position:absolute;top:70px;right:16px;z-index:9;width:268px;background:rgba(17,28,40,.92);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;backdrop-filter:blur(8px);max-height:calc(100vh - 100px);overflow:auto}
+.panel h3{font-size:.95rem;color:#fff;margin-bottom:2px}
+.panel .sub{font-size:.72rem;color:var(--muted);font-family:var(--mono);letter-spacing:.04em;margin-bottom:14px}
+.jog{margin:11px 0}
+.jog label{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:4px}
+.jog label b{font-family:var(--mono);color:var(--amber);font-weight:600}
+.jog label .ax{color:var(--text);font-weight:600}
+.jog input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:3px;background:var(--line-2);outline:none}
+.jog input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--amber);cursor:pointer;border:2px solid #fff2}
+.jog .lim{font-family:var(--mono);font-size:.6rem;color:#5d6b7a;display:flex;justify-content:space-between;margin-top:2px}
+.readout{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.readout .row{display:flex;justify-content:space-between;font-size:.76rem;margin:5px 0}
+.readout .row span{color:var(--muted)} .readout .row b{font-family:var(--mono);color:#fff;font-weight:500}
+.btns{display:flex;gap:8px;margin-top:14px}
+.btns button{flex:1;font-family:var(--sans);font-size:.76rem;font-weight:600;padding:9px;border-radius:8px;border:1px solid var(--line-2);background:transparent;color:var(--text);cursor:pointer}
+.btns button:hover{border-color:var(--steel);color:#fff}
+.btns button.primary{background:var(--amber-dk);border-color:var(--amber-dk);color:#fff}
+.btns button.primary:hover{background:var(--amber)}
+.toggles{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+.toggles label{font-size:.76rem;color:var(--muted);display:flex;align-items:center;gap:8px;cursor:pointer}
+.toggles input{accent-color:var(--amber)}
+
+.legend{position:absolute;left:16px;bottom:16px;z-index:9;background:rgba(17,28,40,.9);border:1px solid var(--line);border-radius:12px;padding:13px 15px;max-width:330px;font-size:.74rem;color:var(--muted);line-height:1.5}
+.legend b{color:#fff;font-family:var(--display)}
+.legend .att{margin-top:8px;font-size:.66rem;color:#5d6b7a;font-family:var(--mono)}
+.legend .att a{color:var(--steel)}
+
+#loader{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:var(--bg)}
+#loader .spin{width:34px;height:34px;border:3px solid var(--line-2);border-top-color:var(--amber);border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#loader p{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+#err{display:none;position:absolute;inset:0;z-index:21;align-items:center;justify-content:center;padding:30px;text-align:center;background:var(--bg)}
+#err div{max-width:440px;color:var(--muted);font-size:.9rem;line-height:1.6}
+
+@media(max-width:720px){
+  .panel{position:absolute;top:auto;bottom:0;right:0;left:0;width:auto;border-radius:14px 14px 0 0;max-height:46vh}
+  .legend{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="brand" style="text-decoration:none">
+    <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true"><rect x="1.5" y="1.5" width="37" height="37" rx="9" fill="#0E2235" stroke="#243240"/><path d="M12 11 L20 16 L20 25" fill="none" stroke="#5B9BD8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="11" r="2.6" fill="#5B9BD8"/><circle cx="20" cy="16" r="2.2" fill="#5B9BD8"/><path d="M20 25 l-2.5 4 h5 z" fill="#FF7A33"/><path d="M13.5 32 H26.5" stroke="#FF7A33" stroke-width="2.2" stroke-linecap="round"/></svg>
+    <span><b>KUKA KR 150 · 3D Twin</b><span>LFAM — kr150_2 model</span></span>
+  </a>
+  <span class="sp"></span>
+  <a class="t" href="guide.html">Build Manual</a>
+  <a class="t" href="index.html">Overview</a>
+</div>
+
+<div id="scene"></div>
+
+<div id="loader"><div class="spin"></div><p>Loading KR 150 model…</p></div>
+<div id="err"><div><b style="color:#fff;font-family:var(--display)">3D view unavailable.</b><br>This twin needs WebGL and an internet connection (it loads three.js from a CDN). Try a desktop browser with hardware acceleration on. The robot model files are in <code>/model/kuka_kr150_support/</code>.</div></div>
+
+<div class="panel" id="panel">
+  <h3>Jog the axes</h3>
+  <div class="sub">KR 150 · 6-axis · meters</div>
+  <div id="jogs"></div>
+  <div class="readout">
+    <div class="row"><span>Tool tip (TCP)</span><b id="tcp">—</b></div>
+    <div class="row"><span>Radial reach</span><b id="reach">—</b></div>
+  </div>
+  <div class="toggles">
+    <label><input type="checkbox" id="tEnv" checked> Print envelope &amp; table</label>
+    <label><input type="checkbox" id="tReach" checked> Reach circle (3.1 m)</label>
+    <label><input type="checkbox" id="tSpin"> Auto-rotate</label>
+  </div>
+  <div class="btns">
+    <button class="primary" id="bHome">Home pose</button>
+    <button id="bPrint">Print pose</button>
+  </div>
+</div>
+
+<div class="legend">
+  <b>Interactive digital twin.</b> Drag to orbit · scroll to zoom · jog A1–A6 to check reach and collisions against the build table. The tool-tip readout is the live flange position from forward kinematics.
+  <div class="att">Model: ROS-Industrial <a href="https://github.com/ros-industrial/kuka_experimental">kuka_kr150_support</a> (<code>kr150_2</code>), Apache-2.0. Collision meshes; kinematics per the package URDF.</div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+const MESH = 'model/kuka_kr150_support/meshes/kr150_2/collision';
+// Joint chain from the kuka_kr150_support URDF (origins m, axes, limits deg)
+const JOINTS = [
+  { ax:'A1', mesh:'link_1', pos:[0,0,0.75],   axis:[0,0,-1], min:-185, max:185, home:0,   print:0   },
+  { ax:'A2', mesh:'link_2', pos:[0.35,0,0],   axis:[0,1,0],  min:-146, max:0,   home:-90, print:-65 },
+  { ax:'A3', mesh:'link_3', pos:[1.25,0,0],   axis:[0,1,0],  min:-119, max:155, home:90,  print:95  },
+  { ax:'A4', mesh:'link_4', pos:[0,0,-0.055], axis:[-1,0,0], min:-350, max:350, home:0,   print:0   },
+  { ax:'A5', mesh:'link_5', pos:[1.1,0,0],    axis:[0,1,0],  min:-125, max:125, home:0,   print:60  },
+  { ax:'A6', mesh:'link_6', pos:[0.23,0,0],   axis:[-1,0,0], min:-350, max:350, home:0,   print:0   },
+];
+
+let renderer, scene, camera, controls, robot, flange, envGroup, reachGroup, tcpMarker;
+const groups = [];
+const tmp = new THREE.Vector3();
+
+try { init(); } catch(e){ showErr(e); }
+
+function init(){
+  const host = document.getElementById('scene');
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  host.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0B121B);
+  scene.fog = new THREE.Fog(0x0B121B, 9, 20);
+
+  camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+  camera.up.set(0,0,1);                 // Z-up world (robot frame)
+  camera.position.set(4.6, -4.8, 3.4);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0.9, 0, 1.1);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI*0.98; controls.minDistance = 2; controls.maxDistance = 16;
+
+  // lights
+  scene.add(new THREE.HemisphereLight(0x9fc3ff, 0x202a33, 0.7));
+  const key = new THREE.DirectionalLight(0xffffff, 1.5);
+  key.position.set(4,-6,9); key.castShadow = true;
+  key.shadow.mapSize.set(2048,2048);
+  const s = 6; Object.assign(key.shadow.camera, {left:-s,right:s,top:s,bottom:-s,near:1,far:30});
+  scene.add(key);
+  scene.add(new THREE.DirectionalLight(0x88aadd, 0.4).translateZ(0));
+
+  buildGround();
+  buildEnvelope();
+  buildReach();
+  buildRobot();
+  buildJogUI();
+
+  addEventListener('resize', onResize);
+  renderer.setAnimationLoop(tick);
+}
+
+function buildGround(){
+  const g = new THREE.Mesh(
+    new THREE.PlaneGeometry(40,40),
+    new THREE.MeshStandardMaterial({ color:0x0d1822, roughness:1, metalness:0 })
+  );
+  g.receiveShadow = true; scene.add(g);
+  const grid = new THREE.GridHelper(40, 40, 0x2a3a4a, 0x1a2630);
+  grid.rotation.x = Math.PI/2;            // into XY plane (Z-up)
+  grid.position.z = 0.001; scene.add(grid);
+}
+
+function buildEnvelope(){
+  envGroup = new THREE.Group(); scene.add(envGroup);
+  // build table ~1.5 m in front (+X), 1.2 x 1.2 x 0.1 m
+  const tableTopZ = 0.55;
+  const table = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 1.2, 0.1),
+    new THREE.MeshStandardMaterial({ color:0x9aa6b2, metalness:0.6, roughness:0.4 })
+  );
+  table.position.set(1.85, 0, tableTopZ-0.05); table.castShadow = table.receiveShadow = true;
+  envGroup.add(table);
+  // steel legs
+  const legMat = new THREE.MeshStandardMaterial({ color:0x2a3640, metalness:0.5, roughness:0.6 });
+  for (const dx of [-0.5,0.5]) for (const dy of [-0.5,0.5]){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,tableTopZ-0.1), legMat);
+    leg.position.set(1.85+dx, dy, (tableTopZ-0.1)/2); leg.castShadow=true; envGroup.add(leg);
+  }
+  // print volume wireframe on the table
+  const pv = new THREE.Mesh(new THREE.BoxGeometry(1.0,1.0,0.9),
+    new THREE.MeshBasicMaterial({ color:0xFF7A33, transparent:true, opacity:0.06 }));
+  pv.position.set(1.85, 0, tableTopZ+0.45); envGroup.add(pv);
+  const pvEdges = new THREE.LineSegments(new THREE.EdgesGeometry(pv.geometry),
+    new THREE.LineBasicMaterial({ color:0xFF7A33, transparent:true, opacity:0.5 }));
+  pvEdges.position.copy(pv.position); envGroup.add(pvEdges);
+}
+
+function buildReach(){
+  reachGroup = new THREE.Group(); scene.add(reachGroup);
+  // radial reach circle r = 3.1 m on the ground
+  const r = 3.1, seg = 96, pts = [];
+  for (let i=0;i<=seg;i++){ const a=i/seg*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*r, Math.sin(a)*r, 0.01)); }
+  const circle = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineDashedMaterial({ color:0x5B9BD8, dashSize:0.18, gapSize:0.12, transparent:true, opacity:0.7 }));
+  circle.computeLineDistances(); reachGroup.add(circle);
+}
+
+function buildRobot(){
+  robot = new THREE.Group(); scene.add(robot);
+  const loader = new STLLoader();
+  const linkMat = ()=> new THREE.MeshStandardMaterial({ color:0xF06A28, metalness:0.25, roughness:0.55, flatShading:true });
+  const baseMat = new THREE.MeshStandardMaterial({ color:0x2b3742, metalness:0.4, roughness:0.6, flatShading:true });
+
+  const queue = [{ file:'base_link', parent:null, mat:baseMat }]
+    .concat(JOINTS.map(j=>({ file:j.mesh, joint:j })));
+  let pending = queue.length;
+
+  // build kinematic groups first (so meshes can attach as they arrive)
+  let parent = robot;
+  for (const j of JOINTS){
+    const g = new THREE.Group();
+    g.position.set(...j.pos);
+    j.axisVec = new THREE.Vector3(...j.axis).normalize();
+    j.group = g; j.val = j.home;
+    parent.add(g); groups.push(j); parent = g;
+  }
+  // flange / tool0 at end of chain + a TCP marker (cone pointing along tool0 Z = +X then rpy 90° about Y → points +Z? we mark along the local frame)
+  flange = new THREE.Group(); parent.add(flange);
+  tcpMarker = new THREE.Mesh(new THREE.ConeGeometry(0.05,0.16,16),
+    new THREE.MeshStandardMaterial({ color:0xFFB07A, metalness:0.2, roughness:0.4 }));
+  tcpMarker.rotation.z = Math.PI/2;          // point along +X (flange normal)
+  tcpMarker.position.set(0.08,0,0);
+  flange.add(tcpMarker);
+
+  function done(){ if(--pending===0){ applyAngles(); document.getElementById('loader').style.display='none'; } }
+
+  for (const item of [{file:'base_link',mat:baseMat,t:robot}].concat(JOINTS.map(j=>({file:j.mesh,mat:linkMat(),t:j.group})))){
+    loader.load(`${MESH}/${item.file}.stl`, geo=>{
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, item.mat);
+      m.castShadow = true; m.receiveShadow = true;
+      item.t.add(m); done();
+    }, undefined, err=>{ showErr(err); });
+  }
+}
+
+function applyAngles(){
+  for (const j of groups) j.group.setRotationFromAxisAngle(j.axisVec, THREE.MathUtils.degToRad(j.val));
+  if (flange){
+    flange.getWorldPosition(tmp);
+    document.getElementById('tcp').textContent = `${(tmp.x*1000)|0}, ${(tmp.y*1000)|0}, ${(tmp.z*1000)|0} mm`;
+    const radial = Math.hypot(tmp.x, tmp.y);
+    document.getElementById('reach').textContent = `${(radial*1000)|0} mm`;
+  }
+}
+
+function buildJogUI(){
+  const host = document.getElementById('jogs');
+  groups.forEach((j,i)=>{
+    const wrap = document.createElement('div'); wrap.className='jog';
+    wrap.innerHTML = `<label><span class="ax">${j.ax}</span><b id="v${i}">${j.val}°</b></label>
+      <input type="range" id="s${i}" min="${j.min}" max="${j.max}" step="1" value="${j.val}">
+      <div class="lim"><span>${j.min}°</span><span>${j.max}°</span></div>`;
+    host.appendChild(wrap);
+    wrap.querySelector('input').addEventListener('input', e=>{
+      j.val = +e.target.value; document.getElementById('v'+i).textContent = j.val+'°'; applyAngles();
+    });
+  });
+  document.getElementById('bHome').onclick  = ()=> setPose('home');
+  document.getElementById('bPrint').onclick = ()=> setPose('print');
+  document.getElementById('tEnv').onchange  = e=> envGroup.visible = e.target.checked;
+  document.getElementById('tReach').onchange= e=> reachGroup.visible = e.target.checked;
+  document.getElementById('tSpin').onchange = e=> controls.autoRotate = e.target.checked;
+  controls.autoRotateSpeed = 1.2;
+}
+function setPose(which){
+  groups.forEach((j,i)=>{ j.val = j[which]; const s=document.getElementById('s'+i); s.value=j.val; document.getElementById('v'+i).textContent=j.val+'°'; });
+  applyAngles();
+}
+function onResize(){ camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }
+function tick(){ controls.update(); renderer.render(scene, camera); }
+function showErr(e){ console.error(e); const l=document.getElementById('loader'); if(l)l.style.display='none'; const x=document.getElementById('err'); if(x)x.style.display='flex'; }
+</script>
+</body>
+</html>

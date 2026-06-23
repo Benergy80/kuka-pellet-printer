@@ -567,6 +567,7 @@ $VEL.CP = 0.01667
       <tr><td>Visual Components</td><td>Cell-level KUKA sim</td><td>Via plugins</td><td>Licensed</td></tr>
     </table>
     <div class="note ok"><span class="tag">Recommended twin stack</span><b>RoboDK</b> (load KR 150 R3100-2, KUKA_KRC2 post) as the working tool, with <b>ROS-Industrial <code>kuka_kr150_support</code> + MoveIt/RViz</b> as a free cross-check of reach and joint-limit collisions. Reserve <b>KUKA.OfficeLite/KUKA.Sim</b> for final validation if the posted KRL must be guaranteed identical to hardware — note a KSS 5.x VRC image may be legacy/hard to license today.</div>
+    <p style="margin:14px 0"><a href="twin.html" style="font-weight:600">→ Open the interactive 3D twin</a> — a browser model of the KR 150 (built from <code>kuka_kr150_support</code>) where you can jog all six axes and read the live tool-tip position against the print envelope.</p>
     <p>Representative joint limits from the ROS-Industrial URDF (radians): A1 ±3.23, A2 −2.44…−0.087, A3 −2.09…+2.93, A4 ±6.11, A5 ±2.18, A6 ±6.11 — consistent with the degree ranges in §1.</p>
   </section>
 
