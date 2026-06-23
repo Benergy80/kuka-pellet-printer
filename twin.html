@@ -73,6 +73,11 @@ a{color:var(--steel);text-decoration:none}
 .seg button{flex:1;background:transparent;color:var(--muted);border:none;padding:7px;font-family:var(--sans);font-size:.74rem;font-weight:600;cursor:pointer}
 .seg button:not(:last-child){border-right:1px solid var(--line-2)}
 .seg button.on{background:var(--amber-dk);color:#fff}
+details.cellbox{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+details.cellbox>summary{cursor:pointer;font-size:.8rem;font-weight:600;color:#fff;font-family:var(--display);list-style:none;margin-bottom:6px}
+details.cellbox>summary::-webkit-details-marker{display:none}
+details.cellbox>summary::before{content:"▾ ";color:var(--steel)}
+details.cellbox:not([open])>summary::before{content:"▸ "}
 
 .hint{font-size:.72rem;color:var(--muted);line-height:1.5;background:rgba(91,155,216,.08);border:1px solid var(--line);border-radius:9px;padding:10px 11px;margin-bottom:4px}
 .hint b{color:#fff;font-family:var(--display)}
@@ -179,6 +184,18 @@ a{color:var(--steel);text-decoration:none}
     <label><input type="checkbox" id="tReach" checked> Reach circle (3.1 m)</label>
     <label><input type="checkbox" id="tSpin"> Auto-rotate</label>
   </div>
+
+  <details class="cellbox" open>
+    <summary>Work cell &amp; crash zones</summary>
+    <div class="range"><span>Width&nbsp;X</span><input type="range" id="cellW" min="2" max="6" step="0.1" value="4.6"><b id="cellWv" style="font-family:var(--mono);color:#fff">4.6&nbsp;m</b></div>
+    <div class="range"><span>Depth&nbsp;Y</span><input type="range" id="cellD" min="2" max="6" step="0.1" value="5"><b id="cellDv" style="font-family:var(--mono);color:#fff">5.0&nbsp;m</b></div>
+    <div class="range"><span>Height&nbsp;Z</span><input type="range" id="cellH" min="1.5" max="4" step="0.1" value="3.4"><b id="cellHv" style="font-family:var(--mono);color:#fff">3.4&nbsp;m</b></div>
+    <div class="toggles" style="margin-top:8px">
+      <label><input type="checkbox" id="cbWalls" checked> Show walls</label>
+      <label><input type="checkbox" id="cbCrash" checked> Crash detection</label>
+    </div>
+    <div class="readout" style="margin-top:8px;border:none;padding-top:0"><div class="row"><span>Cell</span><span id="cellStatus" class="pill ok">CLEAR</span></div></div>
+  </details>
 </div>
 
 <div class="legend">
@@ -222,6 +239,8 @@ let part=null, path=null, beadGeo=null, beadLine=null, head=null, anim={playing:
 const holders = {}, groups = [];
 const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _a=new THREE.Vector3(), _v2=new THREE.Vector3(), _r=new THREE.Vector3(), _d=new THREE.Vector3(), _c=new THREE.Vector3();
 const DOWN=new THREE.Vector3(0,0,-1);
+let cellGroup, cellWire, crashOn=true; const wallMeshes=[]; const _box=new THREE.Box3();
+const BACK_X=-1.0; const cell={xmin:-1,xmax:3.6,ymin:-2.5,ymax:2.5,zmin:0,zmax:3.4}; const collision={hit:false,sides:{}};
 
 try { init(); } catch(e){ showErr(e); }
 
@@ -248,7 +267,7 @@ function init(){
   key.shadow.mapSize.set(2048,2048); const s=7; Object.assign(key.shadow.camera,{left:-s,right:s,top:s,bottom:-s,near:1,far:30});
   scene.add(key); scene.add(new THREE.DirectionalLight(0x88aadd,0.35));
 
-  buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildIK(); buildUI(); setMeshMode('visual');
+  buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildCell(); buildIK(); buildUI(); setMeshMode('visual');
   window.__twin = { THREE, holders, groups, solveIK, loadGeometry, slice, get state(){return {mode, total:anim.total, playing:anim.playing, hasPart:!!part};} };
 
   addEventListener('resize', onResize);
@@ -279,6 +298,53 @@ function buildReach(){
   for(let i=0;i<=seg;i++){const a=i/seg*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*r,Math.sin(a)*r,0.01));}
   const c=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({color:0x5B9BD8,dashSize:0.18,gapSize:0.12,transparent:true,opacity:0.7}));
   c.computeLineDistances(); reachGroup.add(c);
+}
+
+/* ---------- work cell + crash zones ---------- */
+function val(id,def){ const el=document.getElementById(id); return el?+el.value:def; }
+function lab(id,t){ const el=document.getElementById(id); if(el) el.textContent=t; }
+function wallMat(){ return new THREE.MeshBasicMaterial({color:0x5B9BD8, transparent:true, opacity:0.07, side:THREE.DoubleSide, depthWrite:false}); }
+function buildCell(){ cellGroup=new THREE.Group(); scene.add(cellGroup); updateCell(); }
+function updateCell(){
+  const W=val('cellW',4.6), D=val('cellD',5.0), H=val('cellH',3.4);
+  cell.xmin=BACK_X; cell.xmax=BACK_X+W; cell.ymin=-D/2; cell.ymax=D/2; cell.zmin=0; cell.zmax=H;
+  lab('cellWv',W.toFixed(1)+' m'); lab('cellDv',D.toFixed(1)+' m'); lab('cellHv',H.toFixed(1)+' m');
+  rebuildWalls(); checkCollision();
+}
+function rebuildWalls(){
+  while(wallMeshes.length){ const m=wallMeshes.pop(); cellGroup.remove(m); m.geometry.dispose(); m.material.dispose(); }
+  const W=cell.xmax-cell.xmin, D=cell.ymax-cell.ymin, H=cell.zmax, cx=(cell.xmin+cell.xmax)/2, t=0.02;
+  const add=(side,geo,x,y,z)=>{ const m=new THREE.Mesh(geo, wallMat()); m.position.set(x,y,z); m.userData.side=side; cellGroup.add(m); wallMeshes.push(m); };
+  add('bx', new THREE.BoxGeometry(t,D,H), cell.xmin,0,H/2);
+  add('fx', new THREE.BoxGeometry(t,D,H), cell.xmax,0,H/2);
+  add('ry', new THREE.BoxGeometry(W,t,H), cx,cell.ymin,H/2);
+  add('ly', new THREE.BoxGeometry(W,t,H), cx,cell.ymax,H/2);
+  add('cz', new THREE.BoxGeometry(W,D,t), cx,0,H);
+  if(cellWire){ cellGroup.remove(cellWire); cellWire.geometry.dispose(); cellWire.material.dispose(); }
+  const bg=new THREE.BoxGeometry(W,D,H);
+  cellWire=new THREE.LineSegments(new THREE.EdgesGeometry(bg), new THREE.LineBasicMaterial({color:0x5B9BD8,transparent:true,opacity:0.4}));
+  bg.dispose(); cellWire.position.set(cx,0,H/2); cellGroup.add(cellWire);
+  applyWallVis();
+}
+function applyWallVis(){ const el=document.getElementById('cbWalls'); const v=!el||el.checked; wallMeshes.forEach(m=>m.visible=v); }
+function highlightWalls(sides){ for(const m of wallMeshes){ const on=sides && sides[m.userData.side]; m.material.color.set(on?0xFF6B6B:0x5B9BD8); m.material.opacity=on?0.3:0.07; } }
+function checkCollision(){
+  const el=document.getElementById('cellStatus');
+  if(!crashOn){ collision.hit=false; collision.sides={}; highlightWalls({}); if(el){el.textContent='OFF'; el.className='pill';} return; }
+  if(robot) robot.updateMatrixWorld(true); if(part) part.updateMatrixWorld(true);
+  _box.makeEmpty();
+  for(const k in holders) _box.expandByObject(holders[k].col);
+  if(flange) _box.expandByObject(flange);
+  if(part && part.visible) _box.expandByObject(part);
+  if(_box.isEmpty()){ collision.hit=false; highlightWalls({}); if(el){el.textContent='CLEAR';el.className='pill ok';} return; }
+  const s={}; let hit=false; const E=0.02;
+  if(_box.max.x>cell.xmax+E){s.fx=1;hit=true;}
+  if(_box.min.x<cell.xmin-E){s.bx=1;hit=true;}
+  if(_box.max.y>cell.ymax+E){s.ly=1;hit=true;}
+  if(_box.min.y<cell.ymin-E){s.ry=1;hit=true;}
+  if(_box.max.z>cell.zmax+E){s.cz=1;hit=true;}
+  collision.hit=hit; collision.sides=s; highlightWalls(s);
+  if(el){ el.textContent= hit?'COLLISION':'CLEAR'; el.className='pill '+(hit?'bad':'ok'); }
 }
 
 function addHolder(name,parentObj){ const col=new THREE.Group(); const vis=new THREE.Group(); vis.visible=false; parentObj.add(col); parentObj.add(vis); holders[name]={col,vis}; }
@@ -347,6 +413,7 @@ function applyAngles(){
   const st=document.getElementById('status');
   st.textContent = out?'OUT OF REACH':'IN REACH';
   st.className = 'pill '+(out?'bad':'ok');
+  if(cellGroup) checkCollision();
 }
 function syncSliders(){ groups.forEach((j,i)=>{ const s=document.getElementById('s'+i); if(s)s.value=Math.round(j.val); const v=document.getElementById('v'+i); if(v)v.textContent=Math.round(j.val)+'°'; }); }
 
@@ -435,7 +502,7 @@ function loadGeometry(geo){
   mesh.position.set(TABLE.x,TABLE.y,TABLE.top); mesh.castShadow=true; mesh.receiveShadow=true;
   scene.add(mesh); part=mesh;
   document.getElementById('bClear').disabled=false;
-  reslice();
+  reslice(); checkCollision();
 }
 function clearPart(){
   if(part){ scene.remove(part); part.geometry.dispose(); part=null; }
@@ -445,7 +512,7 @@ function clearPart(){
   document.getElementById('bPlay').disabled=true; document.getElementById('bRestart').disabled=true;
   document.getElementById('bClear').disabled=true;
   document.getElementById('printStat').textContent='No model loaded.';
-  setPlayUI(false);
+  setPlayUI(false); if(cellGroup) checkCollision();
 }
 function reslice(){
   if(!part) return;
@@ -569,7 +636,10 @@ function buildUI(){
   set('bRestart',()=>{ anim.i=0; setProgress(0); setPlayUI(false); });
   set('speed',e=>{ anim.speed=+e.target.value; document.getElementById('speedv').textContent=e.target.value+'×'; },'input');
   set('prog',e=>{ setPlayUI(false); setProgress(+e.target.value/1000); },'input');
-  set('showModel',e=>{ if(part) part.visible=e.target.checked; },'change');
+  set('showModel',e=>{ if(part) part.visible=e.target.checked; checkCollision(); },'change');
+  set('cellW',updateCell,'input'); set('cellD',updateCell,'input'); set('cellH',updateCell,'input');
+  set('cbWalls',applyWallVis,'change');
+  set('cbCrash',e=>{ crashOn=e.target.checked; checkCollision(); },'change');
 }
 function setPose(which){ groups.forEach(j=>j.val=j[which]); applyAngles(); syncSliders(); }
 function readSTL(file){ const r=new FileReader(); r.onload=()=>{ try{ loadGeometry(new STLLoader().parse(r.result)); }catch(err){ alert('Could not parse STL.'); console.error(err);} }; r.readAsArrayBuffer(file); }
@@ -582,6 +652,7 @@ function tick(){
     anim.i += dt*120*anim.speed;
     if(anim.i>=anim.total){ anim.i=anim.total; setPlayUI(false); }
     setProgress(anim.i/anim.total);
+    if(collision.hit) setPlayUI(false);
   }
   orbit.update(); renderer.render(scene,camera);
 }
