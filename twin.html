@@ -140,6 +140,7 @@ a{color:var(--steel);text-decoration:none}
   <!-- IK -->
   <div id="secIK" class="hidden">
     <div class="hint"><b>Drag the tool tip.</b> Move the gizmo handles to drive the nozzle to a target — inverse kinematics (CCD) solves the six axes, clamped to their limits. The readout turns red if the target is out of reach.</div>
+    <div class="toggles"><label><input type="checkbox" id="ikVert" checked> Keep nozzle vertical (point down)</label></div>
     <div class="btns"><button id="ikReset">Reset target to tip</button></div>
   </div>
 
@@ -166,11 +167,12 @@ a{color:var(--steel);text-decoration:none}
   <div class="readout">
     <div class="row"><span>Tool tip (TCP)</span><b id="tcp">—</b></div>
     <div class="row"><span>Radial reach</span><b id="reach">—</b></div>
+    <div class="row"><span>Nozzle</span><b id="nozTilt">—</b></div>
     <div class="row"><span>Status</span><span id="status" class="pill ok">IN REACH</span></div>
   </div>
 
   <div class="meshmode">Mesh mode</div>
-  <div class="seg"><button id="mCol" class="on">Collision</button><button id="mVis">Visual</button></div>
+  <div class="seg"><button id="mCol">Collision</button><button id="mVis" class="on">Visual</button></div>
 
   <div class="toggles">
     <label><input type="checkbox" id="tEnv" checked> Print envelope &amp; table</label>
@@ -214,11 +216,12 @@ const JOINTS = [
 ];
 
 let renderer, scene, camera, orbit, robot, flange, tip, envGroup, reachGroup;
-let meshMode='collision', visualLoaded=false, mode='jog';
+let meshMode='visual', visualLoaded=false, mode='jog';
 let ikTarget, tcontrol;
 let part=null, path=null, beadGeo=null, beadLine=null, head=null, anim={playing:false, i:0, total:0, speed:1};
 const holders = {}, groups = [];
-const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _a=new THREE.Vector3();
+const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _a=new THREE.Vector3(), _v2=new THREE.Vector3(), _r=new THREE.Vector3(), _d=new THREE.Vector3(), _c=new THREE.Vector3();
+const DOWN=new THREE.Vector3(0,0,-1);
 
 try { init(); } catch(e){ showErr(e); }
 
@@ -245,7 +248,7 @@ function init(){
   key.shadow.mapSize.set(2048,2048); const s=7; Object.assign(key.shadow.camera,{left:-s,right:s,top:s,bottom:-s,near:1,far:30});
   scene.add(key); scene.add(new THREE.DirectionalLight(0x88aadd,0.35));
 
-  buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildIK(); buildUI();
+  buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildIK(); buildUI(); setMeshMode('visual');
   window.__twin = { THREE, holders, groups, solveIK, loadGeometry, slice, get state(){return {mode, total:anim.total, playing:anim.playing, hasPart:!!part};} };
 
   addEventListener('resize', onResize);
@@ -304,7 +307,7 @@ function loadCollision(){
       geo.computeVertexNormals();
       const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:it.base?0x2b3742:0xF06A28,metalness:it.base?0.4:0.25,roughness:it.base?0.6:0.55,flatShading:true}));
       m.castShadow=m.receiveShadow=true; holders[it.name].col.add(m);
-      if(--pending===0){ applyAngles(); hideLoader(); }
+      if(--pending===0){ applyAngles(); if(meshMode!=='visual') hideLoader(); }
     }, undefined, err=>showErr(err));
   }
 }
@@ -337,6 +340,9 @@ function applyAngles(){
   const radial=Math.hypot(_v.x,_v.y);
   document.getElementById('tcp').textContent=`${(_v.x*1000)|0}, ${(_v.y*1000)|0}, ${(_v.z*1000)|0} mm`;
   document.getElementById('reach').textContent=`${(radial*1000)|0} mm`;
+  flange.getWorldQuaternion(_q); _axis.set(1,0,0).applyQuaternion(_q);    // nozzle direction (flange +X) in world
+  const tilt = THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(_axis.dot(DOWN),-1,1)));
+  const nt=document.getElementById('nozTilt'); if(nt) nt.textContent = `${tilt.toFixed(0)}° from vert`;
   const out = radial>MAX_REACH || _v.z<0.0;
   const st=document.getElementById('status');
   st.textContent = out?'OUT OF REACH':'IN REACH';
@@ -344,24 +350,46 @@ function applyAngles(){
 }
 function syncSliders(){ groups.forEach((j,i)=>{ const s=document.getElementById('s'+i); if(s)s.value=Math.round(j.val); const v=document.getElementById('v'+i); if(v)v.textContent=Math.round(j.val)+'°'; }); }
 
-function solveIK(target, iters=14){
-  for(let it=0; it<iters; it++){
-    for(let i=groups.length-1; i>=0; i--){
-      const j=groups[i];
-      robot.updateMatrixWorld(true);
-      tip.getWorldPosition(_v);                 // current effector
-      j.group.getWorldPosition(_a);             // joint origin
-      j.group.getWorldQuaternion(_q);
-      const axis=j.axisVec.clone().applyQuaternion(_q).normalize();
-      const toE=_v.clone().sub(_a); const toT=target.clone().sub(_a);
-      toE.addScaledVector(axis,-toE.dot(axis)); toT.addScaledVector(axis,-toT.dot(axis));
-      if(toE.lengthSq()<1e-7||toT.lengthSq()<1e-7) continue;
-      toE.normalize(); toT.normalize();
-      let ang=Math.acos(THREE.MathUtils.clamp(toE.dot(toT),-1,1));
-      if(new THREE.Vector3().crossVectors(toE,toT).dot(axis)<0) ang=-ang;
-      let deg=THREE.MathUtils.clamp(j.val+THREE.MathUtils.radToDeg(ang), j.min, j.max);
-      j.val=deg; j.group.setRotationFromAxisAngle(j.axisVec, THREE.MathUtils.degToRad(deg));
+// Decoupled CCD IK. The KR 150 wrist is spherical: axes A4/A5/A6 intersect at the
+// link_5 origin (wrist centre), which depends only on A1–A3. So for a vertical tool
+// we drive the wrist centre with the arm (A1-A3) and orient the tool down with the
+// wrist (A4-A6). Position-only mode uses plain CCD on all joints toward the tip.
+const _axis=new THREE.Vector3();
+const WC_TO_TIP = 0.23 + TIP;   // wrist centre → nozzle tip along the approach axis (m)
+function setJoint(j, deg){ j.val=THREE.MathUtils.clamp(deg, j.min, j.max); j.group.setRotationFromAxisAngle(j.axisVec, THREE.MathUtils.degToRad(j.val)); }
+function jointAxisWorld(j){ j.group.getWorldQuaternion(_q); return _axis.copy(j.axisVec).applyQuaternion(_q).normalize(); }
+// rotate joint i so a world point (eff) swings toward a world target point
+function ccdPoint(i, eff, target){
+  const j=groups[i]; robot.updateMatrixWorld(true);
+  j.group.getWorldPosition(_a); const axis=jointAxisWorld(j).clone();
+  _r.copy(eff).sub(_a); _r.addScaledVector(axis,-_r.dot(axis));
+  _d.copy(target).sub(_a); _d.addScaledVector(axis,-_d.dot(axis));
+  if(_r.lengthSq()<1e-8||_d.lengthSq()<1e-8) return;
+  _r.normalize(); _d.normalize();
+  setJoint(j, j.val + THREE.MathUtils.radToDeg(Math.atan2(_c.crossVectors(_r,_d).dot(axis), _r.dot(_d))));
+}
+// rotate joint i so the tool axis (flange +X) swings toward a world direction
+function ccdDir(i, wantDir){
+  const j=groups[i]; robot.updateMatrixWorld(true);
+  const axis=jointAxisWorld(j).clone();
+  flange.getWorldQuaternion(_q); _r.set(1,0,0).applyQuaternion(_q);   // current tool axis
+  _d.copy(wantDir);
+  _r.addScaledVector(axis,-_r.dot(axis)); _d.addScaledVector(axis,-_d.dot(axis));
+  if(_r.lengthSq()<1e-8||_d.lengthSq()<1e-8) return;
+  _r.normalize(); _d.normalize();
+  setJoint(j, j.val + THREE.MathUtils.radToDeg(Math.atan2(_c.crossVectors(_r,_d).dot(axis), _r.dot(_d))));
+}
+function solveIK(target, opts){
+  opts = opts || {}; const iters = opts.iters || 18; const vertical = !!opts.vertical;
+  if(vertical){
+    const wc=target.clone().addScaledVector(DOWN, -WC_TO_TIP);   // wrist centre sits WC_TO_TIP above the tip
+    for(let it=0; it<iters; it++){
+      for(let i=2;i>=0;i--){ groups[4].group.getWorldPosition(_v); ccdPoint(i, _v, wc); }   // arm → wrist centre
+      for(let i=5;i>=3;i--) ccdDir(i, DOWN);                                                 // wrist → tool down
     }
+  } else {
+    for(let it=0; it<iters; it++)
+      for(let i=groups.length-1;i>=0;i--){ tip.getWorldPosition(_v); ccdPoint(i, _v, target); }
   }
   applyAngles(); syncSliders();
 }
@@ -372,7 +400,7 @@ function buildIK(){
   ikTarget.visible=false; scene.add(ikTarget);
   tcontrol=new TransformControls(camera, renderer.domElement); tcontrol.setSize(0.8);
   tcontrol.addEventListener('dragging-changed', e=> orbit.enabled=!e.value);
-  tcontrol.addEventListener('objectChange', ()=> { if(mode==='ik') solveIK(ikTarget.position); });
+  tcontrol.addEventListener('objectChange', ()=> { if(mode==='ik') solveIK(ikTarget.position, {vertical:document.getElementById('ikVert').checked}); });
   tcontrol.attach(ikTarget); tcontrol.visible=false; tcontrol.enabled=false;
   scene.add(tcontrol);
 }
@@ -503,7 +531,7 @@ function setProgress(frac){
   if(beadGeo) beadGeo.setDrawRange(0, anim.i*2);
   document.getElementById('prog').value = Math.round(frac*1000);
   if(head && path && anim.i>0){ head.position.copy(path.beads[(anim.i-1)*2+1]); head.visible=true;
-    if(document.getElementById('followArm').checked) solveIK(head.position, 8);
+    if(document.getElementById('followArm').checked) solveIK(head.position, {vertical:true, iters:10});
   }
 }
 function setPlayUI(on){ anim.playing=on; const b=document.getElementById('bPlay'); if(b) b.textContent = on?'❚❚ Pause':'▶ Play'; b.classList.toggle('primary', !on); }
