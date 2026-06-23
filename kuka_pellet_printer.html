@@ -207,9 +207,41 @@ footer ul{list-style:none;display:grid;gap:9px}
   .stats,.cards,.three,.pipe,.owners{grid-template-columns:1fr}
   .hero h1{font-size:2rem}
 }
+
+/* ===== Enhancements: icons, hero art, motion ===== */
+svg.lucide{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;display:block}
+.stat .ic,.acard .ic,.scard .ic,.acc>summary .ic{color:var(--amber-dk)}
+.stat .ic svg,.acard .ic svg,.scard .ic svg,.acc>summary .ic svg{width:22px;height:22px}
+.ocard .ic{color:var(--steel-dk)} .ocard .ic svg{width:22px;height:22px}
+.note-dark .ic{color:var(--steel);display:flex;align-items:center} .note-dark .ic svg{width:26px;height:26px}
+.gate .ic{color:var(--amber-dk);display:flex;align-items:center} .gate .ic svg{width:26px;height:26px}
+.caution .ic{color:var(--red);display:flex;align-items:center} .caution .ic svg{width:24px;height:24px}
+
+/* Hero line illustration */
+.hero .wrap{z-index:1}
+.hero-art{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:430px;height:410px;z-index:0;pointer-events:none;opacity:.92}
+.hero-art svg{width:100%;height:100%;overflow:visible}
+.hero-art .ln{stroke:var(--steel);stroke-width:7;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.hero-art .bd{stroke:var(--steel);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.hero-art .box{fill:var(--card);stroke:var(--steel);stroke-width:3}
+.hero-art .dt{fill:var(--card);stroke:var(--steel);stroke-width:3}
+.hero-art .am{stroke:var(--amber);stroke-width:3;fill:none;stroke-linecap:round}
+.hero-art .amf{fill:var(--amber);stroke:none}
+.hero-art .arc{stroke:var(--steel);stroke-width:2;fill:none;stroke-dasharray:2 9;opacity:.35}
+@media(max-width:1080px){.hero-art{display:none}}
+
+/* Scroll progress */
+#scrollbar{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--steel),var(--amber));z-index:100;transition:width .08s linear}
+
+/* Scroll reveal */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1!important;transform:none!important;transition:none}}
+
 </style>
 </head>
 <body>
+<div id="scrollbar"></div>
 
 <nav>
   <div class="nav-in">
@@ -229,6 +261,28 @@ footer ul{list-style:none;display:grid;gap:9px}
 </nav>
 
 <header class="hero">
+  <div class="hero-art" aria-hidden="true">
+    <svg viewBox="0 0 430 410">
+      <path class="arc" d="M118 36 A 250 250 0 0 1 398 296"/>
+      <path class="bd" d="M24 366 H406"/>
+      <rect class="bd" x="240" y="324" width="140" height="16" rx="3"/>
+      <g class="am">
+        <path d="M280 320 H340"/><path d="M283 310 H337"/>
+        <path d="M287 300 H333"/><path d="M292 290 H328"/>
+      </g>
+      <path class="am" d="M310 256 V286"/>
+      <rect class="bd" x="54" y="356" width="96" height="14" rx="3"/>
+      <rect class="bd" x="80" y="314" width="44" height="46" rx="5"/>
+      <path class="ln" d="M102 306 L170 176"/>
+      <path class="ln" d="M170 176 L294 144"/>
+      <path class="ln" d="M294 144 L302 204"/>
+      <rect class="box" x="290" y="200" width="40" height="48" rx="5"/>
+      <path class="amf" d="M302 248 L318 248 L310 264 Z"/>
+      <circle class="dt" cx="102" cy="306" r="13"/>
+      <circle class="dt" cx="170" cy="176" r="11"/>
+      <circle class="dt" cx="294" cy="144" r="10"/>
+    </svg>
+  </div>
   <div class="wrap" style="position:relative">
     <div class="kick">Industrial Additive Manufacturing</div>
     <h1>Converting a KUKA Robot into a Pellet 3D Printer</h1>
@@ -249,10 +303,10 @@ footer ul{list-style:none;display:grid;gap:9px}
     <h2 class="sec">A robotic large-format pellet printer</h2>
     <p class="lead">A 6-axis KUKA arm carries a pellet extruder and prints large parts directly from plastic granules — no filament. The heavy-payload arm, the extruder, and the full feedstock chain are in hand; the work ahead is integration, a build platform, and safety.</p>
     <div class="stats">
-      <div class="stat"><div class="ic">🦾</div><div class="big">150–180 kg</div><div class="lbl">Robot payload — carries any pellet head with margin</div></div>
-      <div class="stat"><div class="ic">🎯</div><div class="big">~2700 mm</div><div class="lbl">Reach — defines the build envelope &amp; cell size</div></div>
-      <div class="stat"><div class="ic">🔥</div><div class="big">3–4 kg/h</div><div class="lbl">Extruder output — moderate LFAM throughput</div></div>
-      <div class="stat"><div class="ic">🌡️</div><div class="big">0–350 °C</div><div class="lbl">Melt range — covers PP, PETG, ABS, PA, PC</div></div>
+      <div class="stat"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></div><div class="big">150–180 kg</div><div class="lbl">Robot payload — carries any pellet head with margin</div></div>
+      <div class="stat"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="big">~2700 mm</div><div class="lbl">Reach — defines the build envelope &amp; cell size</div></div>
+      <div class="stat"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div><div class="big">3–4 kg/h</div><div class="lbl">Extruder output — moderate LFAM throughput</div></div>
+      <div class="stat"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg></div><div class="big">0–350 °C</div><div class="lbl">Melt range — covers PP, PETG, ABS, PA, PC</div></div>
     </div>
   </div>
 </section>
@@ -263,16 +317,16 @@ footer ul{list-style:none;display:grid;gap:9px}
     <div class="kick">What's in Hand</div>
     <h2 class="sec">Current assets</h2>
     <div class="cards">
-      <div class="acard"><div class="ic">🦾</div><h4>Robot + Controller</h4><div class="spec">KUKA KR 150 / 180
+      <div class="acard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></div><h4>Robot + Controller</h4><div class="spec">KUKA KR 150 / 180
 KR C2 (MP9), KCP2 pendant
 480V 3-phase</div><span class="badge b-have">Have</span></div>
-      <div class="acard"><div class="ic">🔥</div><h4>Pellet Extruder</h4><div class="spec">4 kg/h vertical servo
+      <div class="acard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div><h4>Pellet Extruder</h4><div class="spec">4 kg/h vertical servo
 1200 W · 0–350 °C
 1.5–3 mm nozzle</div><span class="badge b-have">Have</span></div>
-      <div class="acard"><div class="ic">💨</div><h4>Hopper Dryer</h4><div class="spec">INTSUPERMAI 110 lb
+      <div class="acard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/></svg></div><h4>Hopper Dryer</h4><div class="spec">INTSUPERMAI 110 lb
 Dries hygroscopic resins
 (ABS, PC, PA, PET)</div><span class="badge b-have">Have</span></div>
-      <div class="acard"><div class="ic">⬆️</div><h4>Vacuum Autoloader</h4><div class="spec">INTBUYING XC-300G
+      <div class="acard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg></div><h4>Vacuum Autoloader</h4><div class="spec">INTBUYING XC-300G
 300 kg/h · 7.5 L
 Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     </div>
@@ -338,12 +392,12 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <div class="kick">The Core Idea</div>
     <h2 class="sec">The robot does only three things to the extruder</h2>
     <div class="three">
-      <div class="scard"><div class="ic">⚡</div><h4>RUN / STOP</h4><br><code>Digital output $OUT[n]</code><p>Extrude on print moves, stop on travel moves.</p></div>
-      <div class="scard"><div class="ic">🔄</div><h4>SET SPEED</h4><br><code>Analog output $ANOUT[1]</code><p>0–10 V proportional to sliced flow rate.</p></div>
-      <div class="scard"><div class="ic">⚠️</div><h4>READ FAULT</h4><br><code>Digital input $IN[n]</code><p>Pause the print on an extruder fault.</p></div>
+      <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></div><h4>RUN / STOP</h4><br><code>Digital output $OUT[n]</code><p>Extrude on print moves, stop on travel moves.</p></div>
+      <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></div><h4>SET SPEED</h4><br><code>Analog output $ANOUT[1]</code><p>0–10 V proportional to sliced flow rate.</p></div>
+      <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div><h4>READ FAULT</h4><br><code>Digital input $IN[n]</code><p>Pause the print on an extruder fault.</p></div>
     </div>
     <div class="note-dark">
-      <div class="ic">✅</div>
+      <div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
       <div><h4>Everything thermal regulates itself.</h4><p>Barrel heat zones, the heated bed, the chamber, and the dryer each run on their own controllers. The robot never manages temperature — which keeps the integration small and robust.</p></div>
     </div>
   </div>
@@ -355,7 +409,7 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <div class="kick">Platform — the three things still to build</div>
     <h2 class="sec">Build platform &amp; enclosure</h2>
     <details class="acc" open>
-      <summary><span class="ic">▦</span> 1 · Rigid print table, tied to the robot's base frame <span class="chev">▶</span></summary>
+      <summary><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> 1 · Rigid print table, tied to the robot's base frame <span class="chev">▶</span></summary>
       <div class="body">
         <ol>
           <li>Size the build area to the reach — keep it ~1.0–1.5 m square, set 0.7–1.5 m in front of the base.</li>
@@ -368,7 +422,7 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
       </div>
     </details>
     <details class="acc">
-      <summary><span class="ic">🌡️</span> 2 · Heated build bed — adhesion &amp; warp control <span class="chev">▶</span></summary>
+      <summary><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg></span> 2 · Heated build bed — adhesion &amp; warp control <span class="chev">▶</span></summary>
       <div class="body">
         <ol>
           <li>Build surface: flat aluminum tooling plate or borosilicate glass, sized to the build area.</li>
@@ -381,7 +435,7 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
       </div>
     </details>
     <details class="acc">
-      <summary><span class="ic">🛡️</span> 3 · Enclosure, fencing &amp; safety interlocks <span class="chev">▶</span></summary>
+      <summary><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span> 3 · Enclosure, fencing &amp; safety interlocks <span class="chev">▶</span></summary>
       <div class="body">
         <ol>
           <li><b>Machine guarding (required):</b> fence beyond the swept volume, one interlocked door, E-stops inside and out. A KR 150/180 at speed is lethal.</li>
@@ -390,7 +444,7 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
           <li>Wire external E-stops to X11 pins C14–C15 / C16–D1.</li>
           <li>Replace the factory bridges with the real safety devices — never leave them jumpered.</li>
         </ol>
-        <div class="caution"><span class="ic">⚠️</span><p>Safety-circuit wiring must be done and validated by a qualified machine-safety integrator — not improvised with permanent jumpers.</p></div>
+        <div class="caution"><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><p>Safety-circuit wiring must be done and validated by a qualified machine-safety integrator — not improvised with permanent jumpers.</p></div>
       </div>
     </details>
   </div>
@@ -428,7 +482,7 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
         <div class="micro" style="margin-top:0">
           <b>Licensed electrician.</b> 480V 3-phase to the KR C2, sized to its nameplate (~7.5–13 kVA — <em>not</em> the sum of axis drive ratings). The heated bed/chamber, extruder control box, dryer, and autoloader each go on their own circuits.
         </div>
-        <div class="caution" style="margin-top:14px"><span class="ic">⚠️</span><p>Confirm the extruder control box accepts an external RUN + speed input before ordering the I/O island.</p></div>
+        <div class="caution" style="margin-top:14px"><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><p>Confirm the extruder control box accepts an external RUN + speed input before ordering the I/O island.</p></div>
       </div>
     </div>
   </div>
@@ -456,10 +510,10 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <div class="kick">Calibration</div>
     <h2 class="sec">Tie the model, the nozzle, and the table together</h2>
     <div class="two-col">
-      <div class="scard"><div class="ic">🎯</div><h4>Tool (TCP) — XYZ 4-point</h4><code>Setup ▸ Measure ▸ Tool ▸ XYZ 4-point</code><p>Touch the nozzle tip to one fixed point from 4 orientations; the controller computes the TCP. Enter the tool A/B/C to match krl_config.json. Save as the Tool number.</p></div>
-      <div class="scard"><div class="ic">📐</div><h4>Base — 3-point</h4><code>Setup ▸ Measure ▸ Base ▸ 3-point</code><p>With the taught TCP, touch the table's 3 reference features: origin, a point on +X, a point in the XY plane. This builds the print coordinate frame. Save as the Base number.</p></div>
+      <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><h4>Tool (TCP) — XYZ 4-point</h4><code>Setup ▸ Measure ▸ Tool ▸ XYZ 4-point</code><p>Touch the nozzle tip to one fixed point from 4 orientations; the controller computes the TCP. Enter the tool A/B/C to match krl_config.json. Save as the Tool number.</p></div>
+      <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg></div><h4>Base — 3-point</h4><code>Setup ▸ Measure ▸ Base ▸ 3-point</code><p>With the taught TCP, touch the table's 3 reference features: origin, a point on +X, a point in the XY plane. This builds the print coordinate frame. Save as the Base number.</p></div>
     </div>
-    <div class="note-dark"><div class="ic">✅</div><div><h4>Verify</h4><p>Jog to Base 0,0,0 — the nozzle should sit at the table origin; +X and +Y run along the table edges. Re-touch the references after any crash.</p></div></div>
+    <div class="note-dark"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div><div><h4>Verify</h4><p>Jog to Base 0,0,0 — the nozzle should sit at the table origin; +X and +Y run along the table edges. Re-touch the references after any crash.</p></div></div>
   </div>
 </section>
 
@@ -520,11 +574,11 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <div class="kick">Who Does What</div>
     <h2 class="sec">Three owners, one cell</h2>
     <div class="owners">
-      <div class="ocard"><div class="ic">🔌</div><h4>Licensed Electrician</h4><p>480V feeder, disconnect, grounding, and the high-power bed/chamber circuits.</p></div>
-      <div class="ocard"><div class="ic">🛡️</div><h4>Safety Integrator</h4><p>X11 / ESC wiring of fence interlock + E-stops, and validation that they stop the robot.</p></div>
-      <div class="ocard"><div class="ic">🛠️</div><h4>You</h4><p>Table, bed, enclosure shell, I/O island, slicer setup, and calibration — stage and bench-test.</p></div>
+      <div class="ocard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg></div><h4>Licensed Electrician</h4><p>480V feeder, disconnect, grounding, and the high-power bed/chamber circuits.</p></div>
+      <div class="ocard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></div><h4>Safety Integrator</h4><p>X11 / ESC wiring of fence interlock + E-stops, and validation that they stop the robot.</p></div>
+      <div class="ocard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><h4>You</h4><p>Table, bed, enclosure shell, I/O island, slicer setup, and calibration — stage and bench-test.</p></div>
     </div>
-    <div class="gate"><span class="ic">⚠️</span><p><b>Resolve first:</b> confirm the extruder control box accepts an external RUN/STOP + speed signal. That single answer decides how good the prints can be — check its wiring manual before ordering the I/O island.</p></div>
+    <div class="gate"><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><p><b>Resolve first:</b> confirm the extruder control box accepts an external RUN/STOP + speed signal. That single answer decides how good the prints can be — check its wiring manual before ordering the I/O island.</p></div>
   </div>
 </section>
 
@@ -650,6 +704,35 @@ window.addEventListener("scroll",()=>{
   navLinks.forEach(a=>a.classList.remove("active"));
   if(navLinks[i])navLinks[i].classList.add("active");
 });
+
+// ---------- ENHANCEMENTS: progress, reveal, animated tracks ----------
+(function(){
+  var bar=document.getElementById("scrollbar");
+  function prog(){var h=document.documentElement,sc=h.scrollTop||document.body.scrollTop,max=h.scrollHeight-h.clientHeight;if(bar)bar.style.width=(max>0?sc/max*100:0)+"%";}
+  window.addEventListener("scroll",prog,{passive:true});prog();
+  var rm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var sel=".stat,.acard,.srow,.scard,.pstep,.ocard,.acc,.chart-wrap,.arch,.note-dark,.gate,.caution,.tablecard,.totbar,.bomtools";
+  var els=[].slice.call(document.querySelectorAll(sel));
+  var tracks=[].slice.call(document.querySelectorAll(".track>i"));
+  tracks.forEach(function(i){i.dataset.w=i.style.width;if(!rm){i.style.width="0";i.style.transition="width 1.1s cubic-bezier(.2,.8,.2,1)";}});
+  if(!("IntersectionObserver" in window)||rm){
+    els.forEach(function(e){e.classList.add("reveal","in");});
+    tracks.forEach(function(i){i.style.width=i.dataset.w;});
+    return;
+  }
+  els.forEach(function(e){e.classList.add("reveal");var p=e.parentNode,idx=[].indexOf.call(p.children,e);e.style.transitionDelay=Math.min(idx,6)*55+"ms";});
+  var obs=new IntersectionObserver(function(ents){
+    ents.forEach(function(en){
+      if(en.isIntersecting){
+        en.target.classList.add("in");
+        var t=en.target.querySelector&&en.target.querySelector(".track>i");
+        if(t)t.style.width=t.dataset.w;
+        obs.unobserve(en.target);
+      }
+    });
+  },{rootMargin:"0px 0px -8% 0px",threshold:.12});
+  els.forEach(function(e){obs.observe(e);});
+})();
 </script>
 </body>
 </html>
