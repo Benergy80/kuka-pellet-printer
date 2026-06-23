@@ -193,8 +193,13 @@ details.cellbox:not([open])>summary::before{content:"▸ "}
     <div class="toggles" style="margin-top:8px">
       <label><input type="checkbox" id="cbWalls" checked> Show walls</label>
       <label><input type="checkbox" id="cbCrash" checked> Crash detection</label>
+      <label><input type="checkbox" id="cbHardStop" checked> Hard-stop at walls</label>
+      <label><input type="checkbox" id="cbSelf" checked> Self-collision</label>
     </div>
-    <div class="readout" style="margin-top:8px;border:none;padding-top:0"><div class="row"><span>Cell</span><span id="cellStatus" class="pill ok">CLEAR</span></div></div>
+    <div class="readout" style="margin-top:8px;border:none;padding-top:0">
+      <div class="row"><span>Walls</span><span id="wallStatus" class="pill ok">CLEAR</span></div>
+      <div class="row"><span>Self</span><span id="selfStatus" class="pill ok">CLEAR</span></div>
+    </div>
   </details>
 </div>
 
@@ -239,8 +244,10 @@ let part=null, path=null, beadGeo=null, beadLine=null, head=null, anim={playing:
 const holders = {}, groups = [];
 const _v=new THREE.Vector3(), _q=new THREE.Quaternion(), _a=new THREE.Vector3(), _v2=new THREE.Vector3(), _r=new THREE.Vector3(), _d=new THREE.Vector3(), _c=new THREE.Vector3();
 const DOWN=new THREE.Vector3(0,0,-1);
-let cellGroup, cellWire, crashOn=true; const wallMeshes=[]; const _box=new THREE.Box3();
-const BACK_X=-1.0; const cell={xmin:-1,xmax:3.6,ymin:-2.5,ymax:2.5,zmin:0,zmax:3.4}; const collision={hit:false,sides:{}};
+let cellGroup, cellWire, crashOn=true, selfOn=true, hardStop=true, lastSafe=null; const wallMeshes=[], hazards=[];
+const _box=new THREE.Box3(), _ba=new THREE.Box3(), _bb=new THREE.Box3();
+const BACK_X=-1.0; const cell={xmin:-1,xmax:3.6,ymin:-2.5,ymax:2.5,zmin:0,zmax:3.4}; const collision={hit:false,wall:false,self:false};
+const SELF_NAMES=['base_link','link_1','link_2','link_3','link_4','link_5','link_6'];
 
 try { init(); } catch(e){ showErr(e); }
 
@@ -267,7 +274,7 @@ function init(){
   key.shadow.mapSize.set(2048,2048); const s=7; Object.assign(key.shadow.camera,{left:-s,right:s,top:s,bottom:-s,near:1,far:30});
   scene.add(key); scene.add(new THREE.DirectionalLight(0x88aadd,0.35));
 
-  buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildCell(); buildIK(); buildUI(); setMeshMode('visual');
+  buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildCell(); buildHazards(); buildIK(); buildUI(); setMeshMode('visual');
   window.__twin = { THREE, holders, groups, solveIK, loadGeometry, slice, get state(){return {mode, total:anim.total, playing:anim.playing, hasPart:!!part};} };
 
   addEventListener('resize', onResize);
@@ -328,23 +335,51 @@ function rebuildWalls(){
 }
 function applyWallVis(){ const el=document.getElementById('cbWalls'); const v=!el||el.checked; wallMeshes.forEach(m=>m.visible=v); }
 function highlightWalls(sides){ for(const m of wallMeshes){ const on=sides && sides[m.userData.side]; m.material.color.set(on?0xFF6B6B:0x5B9BD8); m.material.opacity=on?0.3:0.07; } }
+function buildHazards(){ for(let i=0;i<6;i++){ const h=new THREE.Box3Helper(new THREE.Box3(new THREE.Vector3(),new THREE.Vector3()), 0xFF3B3B); h.visible=false; scene.add(h); hazards.push(h); } }
+function hideHazards(){ for(const h of hazards) h.visible=false; }
+function showHazards(list){ hideHazards(); for(let i=0;i<list.length && i<hazards.length;i++){ hazards[i].box.copy(list[i]); hazards[i].visible=true; } }
+function setPill(el,txt,cls){ if(!el)return; el.textContent=txt; el.className='pill'+(cls?' '+cls:''); }
 function checkCollision(){
-  const el=document.getElementById('cellStatus');
-  if(!crashOn){ collision.hit=false; collision.sides={}; highlightWalls({}); if(el){el.textContent='OFF'; el.className='pill';} return; }
+  const wEl=document.getElementById('wallStatus'), sEl=document.getElementById('selfStatus');
+  if(!crashOn){ collision.hit=collision.wall=collision.self=false; highlightWalls({}); hideHazards(); setPill(wEl,'OFF',null); setPill(sEl,'OFF',null); return; }
   if(robot) robot.updateMatrixWorld(true); if(part) part.updateMatrixWorld(true);
-  _box.makeEmpty();
-  for(const k in holders) _box.expandByObject(holders[k].col);
-  if(flange) _box.expandByObject(flange);
-  if(part && part.visible) _box.expandByObject(part);
-  if(_box.isEmpty()){ collision.hit=false; highlightWalls({}); if(el){el.textContent='CLEAR';el.className='pill ok';} return; }
-  const s={}; let hit=false; const E=0.02;
-  if(_box.max.x>cell.xmax+E){s.fx=1;hit=true;}
-  if(_box.min.x<cell.xmin-E){s.bx=1;hit=true;}
-  if(_box.max.y>cell.ymax+E){s.ly=1;hit=true;}
-  if(_box.min.y<cell.ymin-E){s.ry=1;hit=true;}
-  if(_box.max.z>cell.zmax+E){s.cz=1;hit=true;}
-  collision.hit=hit; collision.sides=s; highlightWalls(s);
-  if(el){ el.textContent= hit?'COLLISION':'CLEAR'; el.className='pill '+(hit?'bad':'ok'); }
+  // per-link world AABBs from collision meshes
+  const boxes=[];
+  for(const n of SELF_NAMES){ if(!holders[n])continue; const b=new THREE.Box3(); b.expandByObject(holders[n].col); if(!b.isEmpty()) boxes.push(b); }
+  if(flange){ const tb=new THREE.Box3(); tb.expandByObject(flange); if(!tb.isEmpty()) boxes.push(tb); }
+  if(!boxes.length){ collision.hit=collision.wall=collision.self=false; setPill(wEl,'CLEAR','ok'); setPill(sEl,'CLEAR','ok'); return; }
+  // WALLS: union of all + part vs the cell bounds
+  _box.makeEmpty(); for(const b of boxes) _box.union(b); if(part&&part.visible) _box.expandByObject(part);
+  const s={}; let wall=false; const E=0.02;
+  if(_box.max.x>cell.xmax+E){s.fx=1;wall=true;}
+  if(_box.min.x<cell.xmin-E){s.bx=1;wall=true;}
+  if(_box.max.y>cell.ymax+E){s.ly=1;wall=true;}
+  if(_box.min.y<cell.ymin-E){s.ry=1;wall=true;}
+  if(_box.max.z>cell.zmax+E){s.cz=1;wall=true;}
+  highlightWalls(s);
+  // SELF: non-adjacent link AABB pairs (shrunk to tolerate normal folding)
+  let self=false; const haz=[]; const M=0.06;
+  if(selfOn){
+    for(let i=0;i<boxes.length;i++) for(let j=i+2;j<boxes.length;j++){
+      _ba.copy(boxes[i]).expandByScalar(-M); _bb.copy(boxes[j]).expandByScalar(-M);
+      if(_ba.isEmpty()||_bb.isEmpty()) continue;
+      if(_ba.intersectsBox(_bb)){ self=true; haz.push(boxes[i],boxes[j]); }
+    }
+  }
+  showHazards(haz);
+  collision.wall=wall; collision.self=self; collision.hit=wall||self;
+  setPill(wEl, wall?'WALL HIT':'CLEAR', wall?'bad':'ok');
+  setPill(sEl, selfOn?(self?'SELF-HIT':'CLEAR'):'OFF', selfOn?(self?'bad':'ok'):null);
+}
+// hard-stop: revert a motion that breached a wall back to the last wall-clear pose
+function enforceWall(afterIK){
+  if(hardStop && collision.wall && lastSafe){
+    groups.forEach((j,i)=>{ j.val=lastSafe[i]; j.group.setRotationFromAxisAngle(j.axisVec, THREE.MathUtils.degToRad(j.val)); });
+    applyAngles(); syncSliders();
+    if(afterIK && ikTarget) tip.getWorldPosition(ikTarget.position);
+  } else if(!collision.wall){
+    lastSafe = groups.map(j=>j.val);
+  }
 }
 
 function addHolder(name,parentObj){ const col=new THREE.Group(); const vis=new THREE.Group(); vis.visible=false; parentObj.add(col); parentObj.add(vis); holders[name]={col,vis}; }
@@ -373,7 +408,7 @@ function loadCollision(){
       geo.computeVertexNormals();
       const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:it.base?0x2b3742:0xF06A28,metalness:it.base?0.4:0.25,roughness:it.base?0.6:0.55,flatShading:true}));
       m.castShadow=m.receiveShadow=true; holders[it.name].col.add(m);
-      if(--pending===0){ applyAngles(); if(meshMode!=='visual') hideLoader(); }
+      if(--pending===0){ applyAngles(); lastSafe=groups.map(j=>j.val); if(meshMode!=='visual') hideLoader(); }
     }, undefined, err=>showErr(err));
   }
 }
@@ -458,7 +493,7 @@ function solveIK(target, opts){
     for(let it=0; it<iters; it++)
       for(let i=groups.length-1;i>=0;i--){ tip.getWorldPosition(_v); ccdPoint(i, _v, target); }
   }
-  applyAngles(); syncSliders();
+  applyAngles(); syncSliders(); enforceWall(true);
 }
 
 /* ---------- IK target + gizmo ---------- */
@@ -612,7 +647,7 @@ function buildUI(){
       <input type="range" id="s${i}" min="${j.min}" max="${j.max}" step="1" value="${j.val}">
       <div class="lim"><span>${j.min}°</span><span>${j.max}°</span></div>`;
     host.appendChild(w);
-    w.querySelector('input').addEventListener('input',e=>{ j.val=+e.target.value; document.getElementById('v'+i).textContent=j.val+'°'; applyAngles(); });
+    w.querySelector('input').addEventListener('input',e=>{ j.val=+e.target.value; document.getElementById('v'+i).textContent=j.val+'°'; applyAngles(); enforceWall(false); });
   });
   const set=(id,fn,ev='click')=>{const el=document.getElementById(id); if(el) el.addEventListener(ev,fn);};
   set('bHome',()=>setPose('home')); set('bPrint',()=>setPose('print'));
@@ -640,6 +675,8 @@ function buildUI(){
   set('cellW',updateCell,'input'); set('cellD',updateCell,'input'); set('cellH',updateCell,'input');
   set('cbWalls',applyWallVis,'change');
   set('cbCrash',e=>{ crashOn=e.target.checked; checkCollision(); },'change');
+  set('cbHardStop',e=>{ hardStop=e.target.checked; },'change');
+  set('cbSelf',e=>{ selfOn=e.target.checked; checkCollision(); },'change');
 }
 function setPose(which){ groups.forEach(j=>j.val=j[which]); applyAngles(); syncSliders(); }
 function readSTL(file){ const r=new FileReader(); r.onload=()=>{ try{ loadGeometry(new STLLoader().parse(r.result)); }catch(err){ alert('Could not parse STL.'); console.error(err);} }; r.readAsArrayBuffer(file); }
