@@ -169,8 +169,8 @@ details.cellbox:not([open])>summary::before{content:"▸ "}
 
   <!-- PRINT -->
   <div id="secPrint" class="hidden">
-    <div class="drop" id="drop">Drop an <b>.STL</b> here or click to upload<br><span style="font-size:.68rem">— sliced &amp; previewed in your browser</span></div>
-    <input type="file" id="file" accept=".stl,model/stl" class="hidden">
+    <div class="drop" id="drop">Drop an <b>.STL</b> or <b>.gcode</b> here, or click to upload<br><span style="font-size:.68rem">— STL is sliced in-browser · G-code is parsed &amp; run as-is</span></div>
+    <input type="file" id="file" accept=".stl,.gcode,.gco,.g,.nc" class="hidden">
     <div class="btns"><button id="bSample">Load sample vase</button><button id="bClear" disabled>Clear</button></div>
     <div class="range"><span>Layer</span><input type="range" id="layerH" min="6" max="30" step="1" value="12"><b id="layerHv" style="font-family:var(--mono);color:var(--head)">12&nbsp;mm</b></div>
     <div class="btns">
@@ -305,7 +305,7 @@ function init(){
   scene.add(key); scene.add(new THREE.DirectionalLight(0x88aadd,0.35));
 
   buildGround(); buildEnvelope(); buildReach(); buildRobot(); buildCell(); buildHazards(); buildIK(); buildUI(); setMeshMode('visual'); applyTheme(curTheme);
-  window.__twin = { THREE, holders, groups, solveIK, loadGeometry, slice, getHead:()=>head, getPath:()=>path, setFrac:(f)=>{anim.i=f;setProgress(f);}, get state(){return {mode, total:anim.total, playing:anim.playing, hasPart:!!part};} };
+  window.__twin = { THREE, holders, groups, solveIK, loadGeometry, slice, getHead:()=>head, getPath:()=>path, setFrac:(f)=>{anim.i=f;setProgress(f);}, loadGcode, get state(){return {mode, total:anim.total, playing:anim.playing, hasPart:!!part};} };
 
   addEventListener('resize', onResize);
   renderer.setAnimationLoop(tick);
@@ -670,26 +670,57 @@ function stitch(segs){
   }
   return polys;
 }
+// Turn an ordered point list + per-segment deposit flags into the playback path.
+// ext[k] = the segment (k-1 → k) is a deposit (bead); false = travel. Arc-length
+// playback over pts (incl. travels) keeps the head gliding instead of teleporting.
+function finalizePath(pts, ext){
+  const beadIndexAtPt=[]; let bc=0;
+  for(let k=0;k<pts.length;k++){ if(k>0 && ext[k]) bc++; beadIndexAtPt.push(bc); }
+  const beads=[]; for(let k=1;k<pts.length;k++){ if(ext[k]) beads.push(pts[k-1],pts[k]); }
+  const cum=[0]; let tot=0; for(let k=1;k<pts.length;k++){ tot+=pts[k].distanceTo(pts[k-1]); cum.push(tot); }
+  return { pts, beadIndexAtPt, beads, cum, totalLen:Math.max(1e-6,tot), steps:Math.max(1,pts.length-1), segCount:beads.length/2 };
+}
 function buildPath(s){
-  // pts = full visitation order; beadIndexAtPt[k] = # deposit segments completed by point k.
-  // A segment k-1→k is a deposit when it lies WITHIN one polyline; the hop between
-  // polylines/layers is a travel (no bead). Animating along pts (incl. travels) keeps
-  // the head moving continuously instead of teleporting between contours.
-  const pts=[], beadIndexAtPt=[]; let beadCount=0;
-  for(const L of s.layers){
-    for(const poly of L.polys){
-      for(let i=0;i<poly.length;i++){
-        pts.push(new THREE.Vector3(poly[i][0],poly[i][1],L.z));
-        if(pts.length>1 && i>0) beadCount++;
-        beadIndexAtPt.push(beadCount);
-      }
+  const pts=[], ext=[];
+  for(const L of s.layers) for(const poly of L.polys) for(let i=0;i<poly.length;i++){
+    pts.push(new THREE.Vector3(poly[i][0],poly[i][1],L.z)); ext.push(i>0);   // deposit within a polyline; hop between = travel
+  }
+  return finalizePath(pts, ext);
+}
+// Parse external G-code (Cura / PrusaSlicer / etc.) into the same path, auto-fit to the build area.
+function loadGcode(text){
+  clearPart();
+  const lines=text.split(/\r?\n/);
+  let abs=true, eAbs=true, x=0,y=0,z=0, lastE=0, started=false;
+  const raw=[], ext=[];
+  for(let ln of lines){
+    const c=ln.indexOf(';'); if(c>=0) ln=ln.slice(0,c); ln=ln.trim(); if(!ln) continue;
+    const tk=ln.split(/\s+/), cmd=tk[0].toUpperCase();
+    if(cmd==='G90'){abs=true;continue;} if(cmd==='G91'){abs=false;continue;}
+    if(cmd==='M82'){eAbs=true;continue;} if(cmd==='M83'){eAbs=false;continue;}
+    if(cmd==='G92'){ for(let i=1;i<tk.length;i++){ const a=tk[i][0].toUpperCase(), v=parseFloat(tk[i].slice(1)); if(isNaN(v))continue; if(a==='E')lastE=v; else if(a==='X')x=v; else if(a==='Y')y=v; else if(a==='Z')z=v; } continue; }
+    if(cmd==='G0'||cmd==='G1'){
+      let nx=x,ny=y,nz=z,eVal=null;
+      for(let i=1;i<tk.length;i++){ const a=tk[i][0].toUpperCase(), v=parseFloat(tk[i].slice(1)); if(isNaN(v))continue;
+        if(a==='X')nx=abs?v:x+v; else if(a==='Y')ny=abs?v:y+v; else if(a==='Z')nz=abs?v:z+v; else if(a==='E')eVal=v; }
+      let deposit=false;
+      if(eVal!==null){ const dE=eAbs?(eVal-lastE):eVal; deposit=dE>1e-5; lastE=eAbs?eVal:lastE+eVal; }
+      x=nx;y=ny;z=nz;
+      raw.push(new THREE.Vector3(x,y,z)); ext.push(started?deposit:false); started=true;
     }
   }
-  const beads=[];
-  for(let k=1;k<pts.length;k++){ if(beadIndexAtPt[k]>beadIndexAtPt[k-1]) beads.push(pts[k-1], pts[k]); }
-  const cum=[0]; let tot=0;                                  // cumulative arc length for constant-speed playback
-  for(let k=1;k<pts.length;k++){ tot+=pts[k].distanceTo(pts[k-1]); cum.push(tot); }
-  return { pts, beadIndexAtPt, beads, cum, totalLen:Math.max(1e-6,tot), steps:Math.max(1,pts.length-1), segCount: beads.length/2 };
+  if(raw.length<2){ alert('No G0/G1 moves found in this file.'); return; }
+  // auto-fit the path to the build area, centred on the table top (G-code is mm)
+  const box=new THREE.Box3().setFromPoints(raw), size=new THREE.Vector3(); box.getSize(size);
+  const maxXY=Math.max(size.x,size.y)||1, sz=size.z||1, scale=Math.min(0.85/maxXY, 0.82/sz);
+  const cx=(box.min.x+box.max.x)/2, cy=(box.min.y+box.max.y)/2, mz=box.min.z;
+  const pts=raw.map(p=>new THREE.Vector3(TABLE.x+(p.x-cx)*scale, TABLE.y+(p.y-cy)*scale, TABLE.top+(p.z-mz)*scale));
+  path=finalizePath(pts, ext); buildBeads(path);
+  anim.i=0; anim.total=path.steps; setProgress(0); setPlayUI(false);
+  document.getElementById('bClear').disabled=false;
+  document.getElementById('bPlay').disabled=path.segCount===0; document.getElementById('bRestart').disabled=path.segCount===0;
+  document.getElementById('printStat').textContent = `G-code · ${pts.length} moves · ${path.segCount} bead segments · fit to build area`;
+  checkCollision();
 }
 function buildBeads(p){
   if(beadLine){ scene.remove(beadLine); beadLine.geometry.dispose(); }
@@ -742,10 +773,10 @@ function buildUI(){
   // print controls
   const fileEl=document.getElementById('file'), drop=document.getElementById('drop');
   drop.addEventListener('click',()=>fileEl.click());
-  fileEl.addEventListener('change',e=>{ if(e.target.files[0]) readSTL(e.target.files[0]); });
+  fileEl.addEventListener('change',e=>{ if(e.target.files[0]) readFile(e.target.files[0]); });
   ;['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
   ;['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
-  drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) readSTL(f); });
+  drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
   set('bSample',()=>{ showLoader('Loading sample…'); fetch('samples/vase.stl').then(r=>r.arrayBuffer()).then(b=>{ loadGeometry(new STLLoader().parse(b)); hideLoader(); }).catch(showErr); });
   set('bClear',clearPart);
   set('layerH',e=>{ document.getElementById('layerHv').textContent=e.target.value+' mm'; reslice(); },'input');
@@ -762,7 +793,16 @@ function buildUI(){
   set('tThemeToggle',()=>{ const t=curTheme==='light'?'dark':'light'; try{localStorage.setItem('kuka-theme',t);}catch(e){} applyTheme(t); });
 }
 function setPose(which){ groups.forEach(j=>j.val=j[which]); applyAngles(); syncSliders(); }
-function readSTL(file){ const r=new FileReader(); r.onload=()=>{ try{ loadGeometry(new STLLoader().parse(r.result)); }catch(err){ alert('Could not parse STL.'); console.error(err);} }; r.readAsArrayBuffer(file); }
+function readFile(file){
+  const name=(file.name||'').toLowerCase(), r=new FileReader();
+  if(/\.(gcode|gco|g|nc)$/.test(name)){
+    r.onload=()=>{ try{ loadGcode(r.result); }catch(err){ alert('Could not parse G-code.'); console.error(err); } };
+    r.readAsText(file);
+  } else {
+    r.onload=()=>{ try{ loadGeometry(new STLLoader().parse(r.result)); }catch(err){ alert('Could not parse STL.'); console.error(err); } };
+    r.readAsArrayBuffer(file);
+  }
+}
 
 function onResize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); if(labelRenderer) labelRenderer.setSize(innerWidth,innerHeight); }
 let _last=performance.now?performance.now():0;
