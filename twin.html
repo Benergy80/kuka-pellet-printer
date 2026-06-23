@@ -141,7 +141,7 @@ const MESH_C = 'model/kuka_kr150_support/meshes/kr150_2/collision';
 const MESH_V = 'model/kuka_kr150_support/meshes/kr150_2/visual';
 let meshMode = 'collision', visualLoaded = false;
 const holders = {};
-let VISUAL_FIX = 0;   // up-axis correction for ColladaLoader (set by test)
+let VISUAL_FIX = Math.PI / 2;   // ColladaLoader converts the Z_UP DAE to Y-up; rotate +90° about X back to the Z-up world
 // Joint chain from the kuka_kr150_support URDF (origins m, axes, limits deg)
 const JOINTS = [
   { ax:'A1', mesh:'link_1', pos:[0,0,0.75],   axis:[0,0,-1], min:-185, max:185, home:0,   print:0   },
@@ -194,6 +194,7 @@ function init(){
   buildReach();
   buildRobot();
   buildJogUI();
+  window.__twin = { THREE, holders, groups, get robot(){return robot;} };
 
   addEventListener('resize', onResize);
   renderer.setAnimationLoop(tick);
