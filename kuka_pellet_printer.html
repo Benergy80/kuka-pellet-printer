@@ -4,7 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KUKA Pellet 3D Printer — Implementation Plan</title>
-<script>(function(){try{var t=localStorage.getItem("kuka-theme");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
+<meta name="description" content="Implementation plan for converting a KUKA 6-axis robot into a large-format pellet 3D printer (LFAM): platform, wiring, software, calibration, bill of materials, and commissioning roadmap.">
+<link rel="canonical" href="https://benergy80.github.io/kuka-pellet-printer/">
+<!-- Open Graph / link preview -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="KUKA Pellet Printer — LFAM">
+<meta property="og:title" content="Converting a KUKA Robot into a Pellet 3D Printer">
+<meta property="og:description" content="Implementation plan — platform, wiring, software, calibration, and bill of materials for a large-format robotic pellet printer.">
+<meta property="og:url" content="https://benergy80.github.io/kuka-pellet-printer/">
+<meta property="og:image" content="https://benergy80.github.io/kuka-pellet-printer/images/og-cover.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="KUKA robot arm printing a large part from plastic pellets">
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Converting a KUKA Robot into a Pellet 3D Printer">
+<meta name="twitter:description" content="Implementation plan — platform, wiring, software, calibration, and BOM for a large-format robotic pellet printer.">
+<meta name="twitter:image" content="https://benergy80.github.io/kuka-pellet-printer/images/og-cover.jpg">
+<script>(function(){try{if(localStorage.getItem("kuka-theme")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -302,6 +320,7 @@ figure.fig figcaption .zoom{float:right;font-family:var(--mono);font-size:.66rem
     <a href="#roadmap">Roadmap</a>
     <a href="#bom">BOM</a>
     <a href="#owners">Owners</a>
+    <a href="#applications">Applications</a>
     <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle light / dark">
       <svg class="lucide ic-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       <svg class="lucide ic-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
@@ -602,6 +621,10 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <h2 class="sec">Commissioning sequence</h2>
     <p class="lead">Indicative effort per phase. Gate everything on step 2 — do not run the arm near the table until the door interlock and every E-stop are proven to stop it.</p>
     <div class="chart-wrap"><div class="chart-box"><canvas id="roadmapChart"></canvas></div></div>
+    <figure class="fig">
+      <img src="images/commissioning-roadmap.webp" width="1774" height="887" loading="lazy" decoding="async" alt="Commissioning roadmap: seven stages — electrical, safety, I/O integration, software, calibration, test print, production — each with status (complete, in progress, pending, not started)">
+      <figcaption><b>Commissioning roadmap.</b> Seven stages from power-up to production, with current status at each gate. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
   </div>
 </section>
 
@@ -659,6 +682,19 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <div class="gate"><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><p><b>Resolve first:</b> confirm the extruder control box accepts an external RUN/STOP + speed signal. That single answer decides how good the prints can be — check its wiring manual before ordering the I/O island.</p></div>
   </div>
 </section>
+
+<!-- APPLICATIONS -->
+<div class="band" id="applications">
+  <div class="wrap">
+    <div class="kick">The Payoff</div>
+    <h2 class="sec">What you can build</h2>
+    <p class="lead">Robotic pellet extrusion opens the door to massive parts, molds, tooling, and design freedom — furniture, architecture, marine, aerospace, transportation, and one-off custom work.</p>
+    <figure class="fig">
+      <img src="images/applications.webp" width="1536" height="1024" loading="lazy" decoding="async" alt="Applications grid: furniture and design, architectural components, industrial tooling, sculptures and art, transportation, marine and boating, aerospace, prototypes and concepts, and custom special projects">
+      <figcaption><b>Application space.</b> Large-scale, strong, functional parts across furniture, architecture, tooling, marine, aerospace, and more. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
+  </div>
+</div>
 
 <!-- GALLERY / CLOSER -->
 <div class="band" id="gallery">
