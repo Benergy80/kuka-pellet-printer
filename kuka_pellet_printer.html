@@ -267,10 +267,26 @@ body,nav,.codebox,footer,.totbar,table,thead th,tbody td,.node,.tag,.badge{trans
 [data-theme="dark"] .caution p{color:#FCA99C}
 [data-theme="dark"] .stat:hover,[data-theme="dark"] .acard:hover,[data-theme="dark"] .scard:hover,[data-theme="dark"] .pstep:hover,[data-theme="dark"] .ocard:hover{box-shadow:0 10px 30px rgba(0,0,0,.35)}
 
+/* ===== Figures + lightbox ===== */
+.band{padding:68px 0;border-bottom:1px solid var(--line)}
+figure.fig{margin:30px 0 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);box-shadow:0 10px 30px rgba(15,23,34,.05)}
+figure.fig img{display:block;width:100%;height:auto;cursor:zoom-in}
+figure.fig figcaption{padding:12px 18px;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);line-height:1.5}
+figure.fig figcaption b{color:var(--text);font-weight:600;font-family:var(--display)}
+figure.fig figcaption .zoom{float:right;font-family:var(--mono);font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--steel);opacity:.85;white-space:nowrap;margin-left:14px}
+[data-theme="dark"] figure.fig{box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#lb{position:fixed;inset:0;z-index:200;background:rgba(7,11,17,.93);display:none;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+#lb.open{display:flex}
+#lb img{max-width:96%;max-height:92%;border-radius:8px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+#lb .x{position:absolute;top:16px;right:22px;width:40px;height:40px;color:#fff;font-size:1.6rem;line-height:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);border-radius:9px;cursor:pointer;opacity:.85;transition:opacity .15s}
+#lb .x:hover{opacity:1}
+@media(max-width:560px){figure.fig figcaption .zoom{display:none}}
+
 </style>
 </head>
 <body>
 <div id="scrollbar"></div>
+<div id="lb" role="dialog" aria-modal="true" aria-label="Enlarged image"><button class="x" type="button" aria-label="Close">&times;</button><img src="" alt=""></div>
 
 <nav>
   <div class="nav-in">
@@ -329,6 +345,19 @@ body,nav,.codebox,footer,.totbar,table,thead th,tbody td,.node,.tag,.badge{trans
   </div>
 </header>
 
+<!-- SHOWCASE -->
+<div class="band" id="showcase">
+  <div class="wrap">
+    <div class="kick">The Machine</div>
+    <h2 class="sec">A KUKA arm, building large</h2>
+    <p class="lead">The full cell in operation — the 6-axis arm carrying the pellet head over a heated build platform, with the hopper dryer and feed chain behind a guarded fence.</p>
+    <figure class="fig">
+      <img src="images/showcase-printer.webp" width="1536" height="1024" decoding="async" alt="KUKA robot arm printing a large wavy part from plastic pellets, with hopper dryer and control cabinet behind a yellow safety fence">
+      <figcaption><b>LFAM cell, printing.</b> Pellet-fed large-format additive manufacturing on a 6-axis KUKA arm. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
+  </div>
+</div>
+
 <!-- OVERVIEW -->
 <section id="overview">
   <div class="wrap">
@@ -363,6 +392,10 @@ Dries hygroscopic resins
 300 kg/h · 7.5 L
 Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     </div>
+    <figure class="fig">
+      <img src="images/material-flow.webp" width="1536" height="1024" loading="lazy" decoding="async" alt="Material flow infographic: plastic pellets to hopper dryer, vacuum loader, pellet extruder, melted bead, and printed part — with compatible materials ABS, PETG, PC, PA, and PP">
+      <figcaption><b>Material flow.</b> From engineering-grade pellets through drying, conveying, melting, and extrusion to a finished large-format part. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
   </div>
 </section>
 
@@ -416,6 +449,10 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
       </div>
       <div class="legend">Amber = robot-controlled in sync with motion &nbsp;·&nbsp; Steel = mechanical / feed path</div>
     </div>
+    <figure class="fig">
+      <img src="images/exploded-diagram.webp" width="1536" height="1024" loading="lazy" decoding="async" alt="Exploded diagram of the LFAM system grouped into motion, extrusion, control, platform, and auxiliary subsystems">
+      <figcaption><b>Exploded system view.</b> Every module mapped to its subsystem — motion, extrusion, control, platform, and auxiliary support. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
   </div>
 </section>
 
@@ -441,6 +478,10 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
   <div class="wrap">
     <div class="kick">Platform — the three things still to build</div>
     <h2 class="sec">Build platform &amp; enclosure</h2>
+    <figure class="fig" style="margin:0 0 30px">
+      <img src="images/build-platform.webp" width="1536" height="1024" loading="lazy" decoding="async" alt="Build platform engineering drawing: top, isometric, and front elevation views with dimensions, specifications, and reference dowel detail">
+      <figcaption><b>Build platform — general arrangement.</b> Plan, elevation, and isometric views with the print envelope, reach, fencing, and reference-dowel detail. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
     <details class="acc" open>
       <summary><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> 1 · Rigid print table, tied to the robot's base frame <span class="chev">▶</span></summary>
       <div class="body">
@@ -542,6 +583,10 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
   <div class="wrap">
     <div class="kick">Calibration</div>
     <h2 class="sec">Tie the model, the nozzle, and the table together</h2>
+    <figure class="fig" style="margin:0 0 30px">
+      <img src="images/calibration-process.webp" width="1536" height="1024" loading="lazy" decoding="async" alt="Calibration process diagram: Tool TCP 4-point, Base 3-point, and nozzle-to-build-surface Z-offset verification with acceptable gap of 0.05 to 0.15 mm">
+      <figcaption><b>Calibration process.</b> Tool TCP (4-point), Base (3-point), and nozzle-to-surface Z-offset verification — with point layouts and best practices. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
     <div class="two-col">
       <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><h4>Tool (TCP) — XYZ 4-point</h4><code>Setup ▸ Measure ▸ Tool ▸ XYZ 4-point</code><p>Touch the nozzle tip to one fixed point from 4 orientations; the controller computes the TCP. Enter the tool A/B/C to match krl_config.json. Save as the Tool number.</p></div>
       <div class="scard"><div class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg></div><h4>Base — 3-point</h4><code>Setup ▸ Measure ▸ Base ▸ 3-point</code><p>With the taught TCP, touch the table's 3 reference features: origin, a point on +X, a point in the XY plane. This builds the print coordinate frame. Save as the Base number.</p></div>
@@ -614,6 +659,18 @@ Feeds the extruder hopper</div><span class="badge b-have">Have</span></div>
     <div class="gate"><span class="ic"><svg class="lucide" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><p><b>Resolve first:</b> confirm the extruder control box accepts an external RUN/STOP + speed signal. That single answer decides how good the prints can be — check its wiring manual before ordering the I/O island.</p></div>
   </div>
 </section>
+
+<!-- GALLERY / CLOSER -->
+<div class="band" id="gallery">
+  <div class="wrap">
+    <div class="kick">In Operation</div>
+    <h2 class="sec">The finished cell</h2>
+    <figure class="fig">
+      <img src="images/printer-operation.webp" width="1536" height="1024" loading="lazy" decoding="async" alt="The completed KUKA pellet printer cell with a large printed part on the heated build platform, dryer and control cabinet alongside">
+      <figcaption><b>Cell in operation.</b> The integrated KUKA pellet printer mid-build — arm, heated platform, and feed chain working as one system. <span class="zoom">Click to enlarge</span></figcaption>
+    </figure>
+  </div>
+</div>
 
 <footer>
   <div class="wrap">
@@ -787,6 +844,18 @@ window.addEventListener("scroll",()=>{
     try{localStorage.setItem(KEY,dark?"dark":"light");}catch(e){}
     if(window.__rebuildCharts)window.__rebuildCharts();
   });
+})();
+
+// ---------- LIGHTBOX ----------
+(function(){
+  var lb=document.getElementById("lb");if(!lb)return;
+  var lbImg=lb.querySelector("img");
+  document.querySelectorAll("figure.fig img").forEach(function(im){
+    im.addEventListener("click",function(){lbImg.src=im.currentSrc||im.src;lbImg.alt=im.alt;lb.classList.add("open");});
+  });
+  function close(){lb.classList.remove("open");lbImg.src="";}
+  lb.addEventListener("click",close);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&lb.classList.contains("open"))close();});
 })();
 </script>
 </body>
