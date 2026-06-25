@@ -247,7 +247,8 @@ import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer
 const MESH_C = 'model/kuka_kr150_support/meshes/kr150_2/collision';
 const MESH_V = 'model/kuka_kr150_support/meshes/kr150_2/visual';
 const VISUAL_FIX = Math.PI / 2;        // ColladaLoader Z_UP→Y-up correction
-const TIP = 0.30;                      // nozzle tip offset along flange +X (m)
+const TIP = 0.48;                      // nozzle tip AXIAL offset along flange +X (m)
+const TIP_LAT = 0.15;                  // nozzle LATERAL offset off the flange centreline (m, flange +Y)
 const MAX_REACH = 3.1;                 // m, radial
 const TABLE = { x:1.85, y:0, top:0.55, box:[1.0,1.0,0.9] };
 
@@ -461,11 +462,21 @@ function buildRobot(){
     parent.add(g); groups.push(j); addHolder(j.mesh,g); parent=g;
   }
   flange=new THREE.Group(); parent.add(flange);
-  // extruder: barrel + nozzle along flange +X
-  const dark=new THREE.MeshStandardMaterial({color:0x222a33,metalness:0.5,roughness:0.5});
-  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.18,20),dark); barrel.rotation.z=Math.PI/2; barrel.position.x=0.10; barrel.castShadow=true; flange.add(barrel);
-  const noz=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.12,20), new THREE.MeshStandardMaterial({color:0xFF8A4C,metalness:0.3,roughness:0.4})); noz.rotation.z=-Math.PI/2; noz.position.x=0.24; noz.castShadow=true; flange.add(noz);
-  tip=new THREE.Object3D(); tip.position.x=TIP; flange.add(tip);
+  // Pellet extruder head (CEAD / MDPE10 class): adapter collar + manifold block on the
+  // flange face, barrel hanging vertical but laterally OFFSET from the flange centreline,
+  // feed/motor section up by the wrist, nozzle at the bottom. Nozzle axis stays flange +X
+  // (down) — only the TCP is off-centre. Parametric: tune TIP (axial) and TIP_LAT (lateral).
+  const steel =new THREE.MeshStandardMaterial({color:0xB8C0C8,metalness:0.85,roughness:0.35});
+  const dark  =new THREE.MeshStandardMaterial({color:0x222a33,metalness:0.5,roughness:0.5});
+  const accent=new THREE.MeshStandardMaterial({color:0xFF8A4C,metalness:0.3,roughness:0.4});
+  const xCyl=(r1,r2,len,mat)=>{ const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,len,24),mat); m.rotation.z=Math.PI/2; m.castShadow=true; return m; };
+  const collar=xCyl(0.075,0.075,0.07,dark); collar.position.x=0.035; flange.add(collar);            // flange adapter coupling
+  const block=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.24,0.18),steel); block.position.set(0.14,TIP_LAT*0.55,0); block.castShadow=true; flange.add(block); // manifold / valve block
+  const barrel=xCyl(0.05,0.05,0.34,steel); barrel.position.set(0.34,TIP_LAT,0); flange.add(barrel);  // vertical barrel, offset
+  const motor=xCyl(0.06,0.06,0.16,dark);  motor.position.set(-0.04,TIP_LAT,0); flange.add(motor);     // feed/motor section by the wrist
+  const throat=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,16),dark); throat.position.set(-0.10,TIP_LAT,0.06); throat.rotation.x=Math.PI/2; throat.castShadow=true; flange.add(throat); // pellet-hose feed throat
+  const noz=new THREE.Mesh(new THREE.ConeGeometry(0.04,0.12,24),accent); noz.rotation.z=-Math.PI/2; noz.position.set(TIP-0.06,TIP_LAT,0); noz.castShadow=true; flange.add(noz);
+  tip=new THREE.Object3D(); tip.position.set(TIP,TIP_LAT,0); flange.add(tip);
   loadCollision();
 }
 function loadCollision(){
@@ -522,11 +533,11 @@ function applyAngles(){
 function syncSliders(){ groups.forEach((j,i)=>{ const s=document.getElementById('s'+i); if(s)s.value=Math.round(j.val); const v=document.getElementById('v'+i); if(v)v.textContent=Math.round(j.val)+'°'; }); }
 
 // Decoupled CCD IK. The KR 150 wrist is spherical: axes A4/A5/A6 intersect at the
-// link_5 origin (wrist centre), which depends only on A1–A3. So for a vertical tool
-// we drive the wrist centre with the arm (A1-A3) and orient the tool down with the
-// wrist (A4-A6). Position-only mode uses plain CCD on all joints toward the tip.
+// link_5 origin (wrist centre). For a vertical tool we orient the tool axis (flange +X)
+// down with the wrist (A4-A6), then drive the REAL nozzle tip — which is offset from the
+// flange centreline (TIP_LAT) — onto the target with the arm (A1-A3). Driving the actual
+// tip (not a wrist-centre scalar) keeps the off-centre nozzle on target.
 const _axis=new THREE.Vector3();
-const WC_TO_TIP = 0.23 + TIP;   // wrist centre → nozzle tip along the approach axis (m)
 function setJoint(j, deg){ j.val=THREE.MathUtils.clamp(deg, j.min, j.max); j.group.setRotationFromAxisAngle(j.axisVec, THREE.MathUtils.degToRad(j.val)); }
 function jointAxisWorld(j){ j.group.getWorldQuaternion(_q); return _axis.copy(j.axisVec).applyQuaternion(_q).normalize(); }
 // rotate joint i so a world point (eff) swings toward a world target point
@@ -553,10 +564,9 @@ function ccdDir(i, wantDir){
 function solveIK(target, opts){
   opts = opts || {}; const iters = opts.iters || 18; const vertical = !!opts.vertical;
   if(vertical){
-    const wc=target.clone().addScaledVector(DOWN, -WC_TO_TIP);   // wrist centre sits WC_TO_TIP above the tip
     for(let it=0; it<iters; it++){
-      for(let i=2;i>=0;i--){ groups[4].group.getWorldPosition(_v); ccdPoint(i, _v, wc); }   // arm → wrist centre
-      for(let i=5;i>=3;i--) ccdDir(i, DOWN);                                                 // wrist → tool down
+      for(let i=5;i>=3;i--) ccdDir(i, DOWN);                                       // wrist → tool axis (flange +X) down
+      for(let i=2;i>=0;i--){ tip.getWorldPosition(_v); ccdPoint(i, _v, target); }   // arm → drive the offset nozzle tip onto target
     }
   } else {
     for(let it=0; it<iters; it++)
